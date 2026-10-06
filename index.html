@@ -479,13 +479,23 @@ async function getIPLocation() {
   }
 }
 
+let watchId = null;
+
 function resolveLocation() {
   if (!sharing) return;
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
+
+  if (!navigator.geolocation) {
+    showToast("⚠️ GPS hardware not supported on this browser");
+    getIPLocation();
+    return;
+  }
+
+  // Use watchPosition for high-precision GPS locks (pinpoints exact house/street)
+  if (watchId == null) {
+    watchId = navigator.geolocation.watchPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
-        let address = "Ta Khmau, Kandal";
+        let address = "";
         try {
           const r = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
@@ -493,24 +503,44 @@ function resolveLocation() {
           );
           const d = await r.json();
           const a = d.address || {};
-          address = [a.suburb || a.village || a.town || a.quarter, a.city || a.county, a.country].filter(Boolean).join(", ") || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          address = [a.road, a.suburb || a.village || a.town || a.quarter, a.city || a.county, a.country].filter(Boolean).join(", ");
         } catch {}
-        fbUpdate(`locations/${currentUser}`, { lat, lng, acc: Math.round(acc), address, method: "gps", ts: Date.now() });
+
+        if (!address) address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        fbUpdate(`locations/${currentUser}`, {
+          lat,
+          lng,
+          acc: Math.round(acc),
+          address: `${address} (±${Math.round(acc)}m)`,
+          method: "gps",
+          ts: Date.now()
+        });
       },
       (err) => {
-        // Fallback to IP if browser GPS permission is not granted
-        getIPLocation();
+        if (err.code === 1) {
+          showToast("⚠️ Please tap 'Allow' for Location in your browser!");
+        }
+        // Only fallback to IP if we don't have any location yet
+        if (!locData[currentUser]) {
+          getIPLocation();
+        }
       },
-      { enableHighAccuracy: true, timeout: 9000, maximumAge: 0 }
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
     );
-  } else {
-    getIPLocation();
   }
 }
 
 function upgradeToGPS() {
   if (!sharing) { showToast("Turn on sharing first"); return; }
-  showToast("🎯 Refreshing precise GPS…");
+  showToast("🎯 Finding exact GPS coordinates…");
+  if (watchId != null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
   resolveLocation();
 }
 
