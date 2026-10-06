@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💕 My GF Tracker</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#1a1a2e; color:#fff; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+    /* ── WRONG LINK SCREEN ── */
+    #wrongScreen {
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      height:100vh; gap:16px; text-align:center; padding:30px;
+      background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);
+    }
+    #wrongScreen h1 { font-size:3rem; }
+    #wrongScreen p  { color:#aaa; font-size:1rem; max-width:320px; line-height:1.6; }
+
+    /* ── HEADER ── */
+    header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px; background:rgba(255,255,255,.05);
+      border-bottom:1px solid rgba(255,255,255,.1);
+      backdrop-filter:blur(10px); z-index:999; flex-shrink:0;
+    }
+    header h2 { font-size:.95rem; }
+    #statusBadge { font-size:.72rem; padding:3px 10px; border-radius:20px; background:#1abc9c22; color:#1abc9c; border:1px solid #1abc9c44; }
+    #shareBtn {
+      padding:7px 14px; border-radius:10px; border:none;
+      background:linear-gradient(135deg,#e94560,#c62a47);
+      color:#fff; font-size:.8rem; cursor:pointer; font-weight:bold;
+    }
+    #shareBtn:active { opacity:.8; }
+
+    /* ── LOCATION STRIP ── */
+    #locStrip {
+      display:flex; justify-content:space-around; flex-wrap:wrap;
+      background:rgba(0,0,0,.45); padding:5px 8px; gap:4px;
+      font-size:.7rem; color:#ccc; flex-shrink:0; z-index:2;
+    }
+    .locCard { display:flex; align-items:center; gap:5px; max-width:48%; }
+    .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .dot-me { background:#e94560; }
+    .dot-gf { background:#f7c59f; }
+    .locText { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+    /* ── MAP ── */
+    #map { flex:1; z-index:1; }
+
+    /* ── CHAT TOGGLE ── */
+    #chatToggle {
+      position:fixed; bottom:22px; right:20px; z-index:1000;
+      width:54px; height:54px; border-radius:50%;
+      background:linear-gradient(135deg,#e94560,#c62a47);
+      border:none; cursor:pointer; font-size:1.4rem;
+      box-shadow:0 4px 20px #e9456077;
+      display:flex; align-items:center; justify-content:center;
+      transition:transform .2s;
+    }
+    #chatToggle:active { transform:scale(.92); }
+    #chatBadge {
+      position:absolute; top:-4px; right:-4px;
+      background:#f7c59f; color:#1a1a2e;
+      border-radius:50%; width:18px; height:18px;
+      font-size:.62rem; font-weight:bold;
+      display:none; align-items:center; justify-content:center;
+    }
+
+    /* ── CHAT PANEL ── */
+    #chatPanel {
+      position:fixed; bottom:86px; right:20px; z-index:999;
+      width:min(320px, calc(100vw - 32px)); max-height:420px;
+      background:#16213e; border-radius:18px;
+      box-shadow:0 8px 40px #0006;
+      display:none; flex-direction:column;
+      border:1px solid rgba(255,255,255,.1);
+      overflow:hidden;
+      transform-origin:bottom right;
+    }
+    #chatPanel.open { display:flex; animation:popIn .2s ease; }
+    @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+
+    #chatHeader {
+      padding:10px 14px; background:rgba(255,255,255,.05);
+      font-size:.88rem; font-weight:bold;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; justify-content:space-between; align-items:center;
+      flex-shrink:0;
+    }
+    #chatMessages {
+      flex:1; overflow-y:auto; padding:10px;
+      display:flex; flex-direction:column; gap:7px;
+      max-height:270px;
+    }
+    #chatMessages::-webkit-scrollbar { width:3px; }
+    #chatMessages::-webkit-scrollbar-thumb { background:#ffffff22; border-radius:3px; }
+
+    .msg { max-width:82%; padding:8px 12px; border-radius:14px; font-size:.83rem; line-height:1.4; word-break:break-word; }
+    .msgTime { font-size:.62rem; color:#ffffff55; margin-top:2px; display:block; }
+    .msg-me    { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
+    .msg-other { background:rgba(255,255,255,.1); align-self:flex-start; border-bottom-left-radius:4px; }
+
+    #typingIndicator { font-size:.7rem; color:#ffffff44; padding:0 12px 5px; min-height:17px; flex-shrink:0; }
+
+    #chatInputRow {
+      display:flex; padding:9px; gap:7px; flex-shrink:0;
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+    #msgBox {
+      flex:1; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+      border-radius:10px; padding:8px 11px; color:#fff;
+      font-size:.83rem; outline:none; resize:none; max-height:72px;
+      font-family:inherit;
+    }
+    #msgBox::placeholder { color:#ffffff44; }
+    #sendBtn {
+      background:linear-gradient(135deg,#e94560,#c62a47);
+      border:none; border-radius:10px; padding:8px 13px;
+      color:#fff; cursor:pointer; font-size:.95rem; flex-shrink:0;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position:fixed; top:66px; left:50%; transform:translateX(-50%);
+      background:#1abc9c; color:#fff; padding:7px 18px; border-radius:20px;
+      font-size:.8rem; z-index:3000; display:none; box-shadow:0 4px 16px #0004;
+      white-space:nowrap;
+    }
+
+    /* ── PULSE ANIMATION on marker ── */
+    .pulse-ring {
+      width:20px; height:20px; border-radius:50%;
+      animation:pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow:0 0 0 0 rgba(233,69,96,.7); }
+      70%  { box-shadow:0 0 0 14px rgba(233,69,96,0); }
+      100% { box-shadow:0 0 0 0 rgba(233,69,96,0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Wrong link fallback -->
+<div id="wrongScreen">
+  <h1>🔒</h1>
+  <p>This link is not valid.<br>Ask for the correct link!</p>
+</div>
+
+<!-- Header -->
+<header>
+  <h2 id="headerTitle">💕 Live Tracker</h2>
+  <span id="statusBadge">🟡 Connecting…</span>
+  <button id="shareBtn" onclick="shareLocation()">📍 Update</button>
+</header>
+
+<!-- Location strip -->
+<div id="locStrip">
+  <div class="locCard"><div class="dot dot-me"></div><span class="locText" id="meLocText">👦 Locating…</span></div>
+  <div class="locCard"><div class="dot dot-gf"></div><span class="locText" id="gfLocText">👧 Locating…</span></div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Chat toggle -->
+<button id="chatToggle" onclick="toggleChat()">
+  💬
+  <span id="chatBadge"></span>
+</button>
+
+<!-- Chat panel -->
+<div id="chatPanel">
+  <div id="chatHeader">
+    <span id="chatTitle">💬 Chat</span>
+    <span id="onlineStatus" style="font-size:.7rem;color:#1abc9c">● …</span>
+  </div>
+  <div id="chatMessages"></div>
+  <div id="typingIndicator"></div>
+  <div id="chatInputRow">
+    <textarea id="msgBox" placeholder="Type a message…" rows="1"
+      onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
+    <button id="sendBtn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  🔥 FIREBASE CONFIG — REPLACE WITH YOURS
+//  https://console.firebase.google.com
+// ═══════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyDEMO_REPLACE_ME",
+  authDomain:        "mygf-tracker.firebaseapp.com",
+  databaseURL:       "https://mygf-tracker-default-rtdb.firebaseio.com",
+  projectId:         "mygf-tracker",
+  storageBucket:     "mygf-tracker.appspot.com",
+  messagingSenderId: "000000000000",
+  appId:             "1:000000000000:web:0000"
+};
+
+// ═══════════════════════════════════════════════════════════
+//  🔑 SECRET TOKENS — change these to anything you like
+//  Your link:  index.html?t=YOUR_TOKEN
+//  Her link:   index.html?t=HER_TOKEN
+// ═══════════════════════════════════════════════════════════
+const TOKENS = {
+  "boyfriend123": "me",   // ← YOUR secret token
+  "girlfriend456": "gf"   // ← HER secret token
+};
+
+// ── Auto-detect user from URL ──────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const token     = urlParams.get("t") || "";
+const currentUser = TOKENS[token] || null;
+
+// ── Config ────────────────────────────────────────────────
+const LABELS = {
+  me: { name:"👦 Me",  color:"#e94560", pulse:"rgba(233,69,96,.7)"  },
+  gf: { name:"👧 Her", color:"#f7c59f", pulse:"rgba(247,197,159,.7)" }
+};
+const OTHER = { me:"gf", gf:"me" };
+
+// ── Firebase / Demo ───────────────────────────────────────
+let db;
+const DEMO_MODE = firebaseConfig.apiKey.includes("DEMO_REPLACE_ME");
+
+if (!DEMO_MODE) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+}
+
+// ── Demo helpers ──────────────────────────────────────────
+const DK = "mygf_v2_" + (location.pathname||"x");
+const dg = () => { try { return JSON.parse(localStorage.getItem(DK)) || {}; } catch { return {}; } };
+const ds = o  => localStorage.setItem(DK, JSON.stringify(o));
+function dSet(path, val) {
+  const d = dg(), parts = path.split("/").filter(Boolean);
+  let c = d;
+  for (let i=0;i<parts.length-1;i++) { if(!c[parts[i]]) c[parts[i]]={};  c=c[parts[i]]; }
+  c[parts[parts.length-1]] = val; ds(d);
+  window.dispatchEvent(new Event("demoChange"));
+}
+function dOn(path, cb) {
+  const read = () => {
+    let c = dg();
+    path.split("/").filter(Boolean).forEach(p => c = c?.[p]);
+    cb(c ?? null);
+  };
+  read();
+  window.addEventListener("demoChange", read);
+  window.addEventListener("storage", read);
+  return setInterval(read, 1200);
+}
+function dPush(path, val) {
+  const key = "k" + Date.now() + Math.random().toString(36).slice(2,6);
+  dSet(path+"/"+key, val); return key;
+}
+
+// ── Wrappers ──────────────────────────────────────────────
+function fbSet(path, val)    { DEMO_MODE ? dSet(path,val)       : db.ref(path).set(val); }
+function fbUpdate(path, val) { DEMO_MODE ? Object.entries(val).forEach(([k,v])=>dSet(path+"/"+k,v)) : db.ref(path).update(val); }
+function fbPush(path, val)   { DEMO_MODE ? dPush(path,val)      : db.ref(path).push(val); }
+function fbOn(path, ev, cb)  { DEMO_MODE ? dOn(path, cb)        : db.ref(path).on(ev, s=>cb(s.val())); }
+
+// ── Map & state ───────────────────────────────────────────
+let map, markers = {}, chatOpen = false, unreadCount = 0;
+let _prevMsgKeys = new Set(), _typingTimer = null;
+
+// ══════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════
+window.addEventListener("DOMContentLoaded", () => {
+  if (!currentUser) {
+    // Invalid / no token
+    document.querySelector("header").style.display = "none";
+    document.getElementById("locStrip").style.display = "none";
+    document.getElementById("map").style.display = "none";
+    document.getElementById("chatToggle").style.display = "none";
+    document.getElementById("wrongScreen").style.display = "flex";
+    return;
+  }
+
+  document.getElementById("headerTitle").textContent =
+    currentUser === "me" ? "💕 Tracker — 👦 You" : "💕 Tracker — 👧 You";
+  document.getElementById("chatTitle").textContent =
+    currentUser === "me" ? "💬 Chat with Her 👧" : "💬 Chat with Him 👦";
+
+  initMap();
+  listenLocations();
+  listenChat();
+  listenTyping();
+  listenOnline();
+
+  // Mark online
+  fbSet(`online/${currentUser}`, { online:true, ts:Date.now() });
+
+  // Share location immediately
+  shareLocation();
+
+  // Auto-refresh every 30 sec
+  setInterval(shareLocation, 30000);
+
+  // Firebase connection badge
+  if (!DEMO_MODE) {
+    db.ref(".info/connected").on("value", s => {
+      const b = document.getElementById("statusBadge");
+      b.textContent = s.val() ? "🟢 Live" : "🔴 Offline";
+      b.style.color  = s.val() ? "#1abc9c" : "#e94560";
+    });
+  } else {
+    document.getElementById("statusBadge").textContent = "🟡 Demo mode";
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+//  MAP
+// ══════════════════════════════════════════════════════════
+function initMap() {
+  map = L.map("map", { zoomControl:true }).setView([13.75,100.52], 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:"© OpenStreetMap"
+  }).addTo(map);
+}
+
+function makeIcon(who) {
+  const { color, pulse } = LABELS[who];
+  const emoji = who === "me" ? "👦" : "👧";
+  return L.divIcon({
+    className:"",
+    html:`<div style="position:relative;width:42px;height:42px">
+      <div style="position:absolute;top:4px;left:4px;width:34px;height:34px;border-radius:50%;
+        animation:pulse 1.8s infinite;
+        background:${color}22;
+        box-shadow:0 0 0 0 ${pulse}">
+      </div>
+      <div style="position:absolute;width:36px;height:36px;top:3px;left:3px;
+        border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+        background:${color}; border:3px solid #fff;
+        box-shadow:0 3px 12px #0008;
+        display:flex;align-items:center;justify-content:center;">
+        <span style="transform:rotate(45deg);font-size:16px">${emoji}</span>
+      </div>
+    </div>`,
+    iconSize:[42,42], iconAnchor:[21,39], popupAnchor:[0,-40]
+  });
+}
+
+function updateMarker(who, lat, lng, address, ts) {
+  if (markers[who]) map.removeLayer(markers[who]);
+  const time = ts ? new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
+  markers[who] = L.marker([lat,lng], { icon:makeIcon(who) })
+    .addTo(map)
+    .bindPopup(`<div style="font-size:.8rem;line-height:1.7">
+      <b>${LABELS[who].name}</b><br>
+      📍 ${address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}<br>
+      🕐 ${time}
+    </div>`);
+
+  const keys = Object.keys(markers);
+  if (keys.length === 2) {
+    map.fitBounds(L.latLngBounds(keys.map(k=>markers[k].getLatLng())), {padding:[55,55]});
+  } else {
+    map.setView([lat,lng], 15);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  LOCATION
+// ══════════════════════════════════════════════════════════
+function shareLocation() {
+  if (!navigator.geolocation) { showToast("Geolocation not supported ❌"); return; }
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude:lat, longitude:lng, accuracy:acc } = pos.coords;
+    let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        { headers:{"Accept-Language":"en"} }
+      );
+      const d = await r.json();
+      address = d.display_name || address;
+    } catch {}
+    fbUpdate(`locations/${currentUser}`, { lat, lng, acc:Math.round(acc), address, ts:Date.now() });
+    showToast("📍 Location updated!");
+  }, err => {
+    showToast("⚠️ " + err.message);
+  }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+}
+
+function listenLocations() {
+  ["me","gf"].forEach(who => {
+    fbOn(`locations/${who}`, "value", data => {
+      if (!data) return;
+      const { lat, lng, address, ts } = data;
+      updateMarker(who, lat, lng, address, ts);
+      const id  = who === "me" ? "meLocText" : "gfLocText";
+      const lbl = LABELS[who].name;
+      const t   = ts ? new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
+      const adr = address ? address.slice(0,35)+(address.length>35?"…":"") : `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      document.getElementById(id).textContent = `${lbl}: ${adr} (${t})`;
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  CHAT
+// ══════════════════════════════════════════════════════════
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById("chatPanel").classList.toggle("open", chatOpen);
+  if (chatOpen) {
+    unreadCount = 0;
+    const b = document.getElementById("chatBadge");
+    b.style.display = "none";
+    scrollChat();
+    document.getElementById("msgBox").focus();
+  }
+}
+
+function sendMessage() {
+  const box  = document.getElementById("msgBox");
+  const text = box.value.trim();
+  if (!text) return;
+  box.value = "";
+  fbPush("chat", { who:currentUser, text, ts:Date.now() });
+  fbSet(`typing/${currentUser}`, false);
+}
+
+function handleKey(e) {
+  if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function handleTyping() {
+  fbSet(`typing/${currentUser}`, true);
+  clearTimeout(_typingTimer);
+  _typingTimer = setTimeout(() => fbSet(`typing/${currentUser}`, false), 2000);
+}
+
+function listenChat() {
+  if (DEMO_MODE) {
+    setInterval(() => {
+      const msgs = dg()?.chat || {};
+      Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v]) => {
+        if (!_prevMsgKeys.has(k)) { _prevMsgKeys.add(k); appendMessage(k,v); }
+      });
+    }, 800);
+    return;
+  }
+  db.ref("chat").orderByChild("ts").on("child_added", s => {
+    if (!_prevMsgKeys.has(s.key)) { _prevMsgKeys.add(s.key); appendMessage(s.key, s.val()); }
+  });
+}
+
+function appendMessage(key, msg) {
+  const isMe = msg.who === currentUser;
+  const div  = document.createElement("div");
+  div.className = "msg " + (isMe ? "msg-me" : "msg-other");
+  const t = new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  div.innerHTML = `${esc(msg.text)}<span class="msgTime">${t}</span>`;
+  document.getElementById("chatMessages").appendChild(div);
+  scrollChat();
+  if (!isMe && !chatOpen) {
+    unreadCount++;
+    const b = document.getElementById("chatBadge");
+    b.style.display = "flex";
+    b.textContent   = unreadCount > 9 ? "9+" : unreadCount;
+  }
+}
+
+function scrollChat() {
+  const c = document.getElementById("chatMessages");
+  c.scrollTop = c.scrollHeight;
+}
+
+function listenTyping() {
+  const other = OTHER[currentUser];
+  fbOn(`typing/${other}`, "value", val => {
+    document.getElementById("typingIndicator").textContent =
+      val ? `${LABELS[other].name} is typing…` : "";
+  });
+}
+
+function listenOnline() {
+  const other = OTHER[currentUser];
+  fbOn(`online/${other}`, "value", val => {
+    const el = document.getElementById("onlineStatus");
+    if (val?.online) {
+      el.textContent = "● online";
+      el.style.color  = "#1abc9c";
+    } else {
+      const ago = val?.ts ? since(val.ts) : "a while";
+      el.textContent  = `● seen ${ago} ago`;
+      el.style.color  = "#ffffff44";
+    }
+  });
+}
+
+function since(ts) {
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s < 60)   return s+"s";
+  if (s < 3600)  return Math.floor(s/60)+"m";
+  return Math.floor(s/3600)+"h";
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display="block";
+  clearTimeout(window._tt);
+  window._tt = setTimeout(()=>t.style.display="none", 2800);
+}
+
+function esc(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+}
+</script>
+</body>
+</html>
