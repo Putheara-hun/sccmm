@@ -41,12 +41,28 @@
     #loginScreen {
       position:fixed; inset:0; z-index:500;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:16px; padding:30px; text-align:center;
+      gap:16px; padding:24px; text-align:center;
     }
     #loginScreen .logo { font-size:3.4rem; }
-    #loginScreen h1 { font-size:1.3rem; font-weight:600; }
+    #loginScreen h1 { font-size:1.35rem; font-weight:600; }
     #loginScreen p.sub { color:#ffffff66; font-size:.82rem; max-width:300px; line-height:1.5; }
-    .login-box { width:min(320px,calc(100vw - 48px)); display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+    
+    .login-tabs {
+      display:flex; gap:10px; width:min(320px,calc(100vw - 48px)); margin-top:6px;
+    }
+    .login-tab {
+      flex:1; padding:12px 10px; border-radius:14px; border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.05); color:#fff; font-family:inherit;
+      font-size:.9rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+      transition:all .2s ease;
+    }
+    .login-tab.active {
+      background:linear-gradient(135deg,#e94560,#c62a47); border-color:#e94560;
+      box-shadow:0 4px 20px #e9456055;
+    }
+    .login-tab:not(.active):hover { background:rgba(255,255,255,.1); }
+
+    .login-box { width:min(320px,calc(100vw - 48px)); display:flex; flex-direction:column; gap:12px; margin-top:4px; }
     .login-box input {
       background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
       border-radius:14px; padding:13px 16px; color:#fff; font-size:.95rem;
@@ -57,7 +73,7 @@
     #loginBtn {
       background:linear-gradient(135deg,#e94560,#c62a47); border:none; border-radius:14px;
       padding:14px; color:#fff; font-size:1rem; font-weight:600; cursor:pointer;
-      font-family:inherit; margin-top:4px;
+      font-family:inherit; margin-top:4px; box-shadow:0 6px 20px #e9456055;
     }
     #loginBtn:active { transform:scale(.98); }
     #loginErr { color:#ff6b81; font-size:.78rem; min-height:16px; }
@@ -164,12 +180,18 @@
 <!-- ── LOGIN ── -->
 <div id="loginScreen">
   <div class="logo">💕</div>
-  <h1>Just Us</h1>
-  <p class="sub">A private space for two. Log in with your own account — you'll both see each other.</p>
+  <h1>Private Space</h1>
+  <p class="sub">Choose who you are and enter your password to enter.</p>
+  
+  <div class="login-tabs">
+    <button type="button" class="login-tab active" id="tabRa" onclick="selectProfile('ra')">👦 Ra</button>
+    <button type="button" class="login-tab" id="tabLeak" onclick="selectProfile('leak')">👧 Leak</button>
+  </div>
+
   <div class="login-box">
-    <input id="luser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" />
-    <input id="lpass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
-    <button id="loginBtn" onclick="doLogin()">Log in</button>
+    <input id="luser" type="hidden" value="ra" />
+    <input id="lpass" type="password" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+    <button id="loginBtn" onclick="doLogin()">Unlock & Enter</button>
     <div id="loginErr"></div>
   </div>
 </div>
@@ -308,9 +330,33 @@ let locData = { p1:null, p2:null };
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
+function selectProfile(u) {
+  document.getElementById("luser").value = u;
+  document.getElementById("tabRa").classList.toggle("active", u === "ra");
+  document.getElementById("tabLeak").classList.toggle("active", u === "leak");
+  document.getElementById("loginErr").textContent = "";
+  const passInput = document.getElementById("lpass");
+  passInput.value = "";
+  passInput.focus();
+}
+
 window.addEventListener("DOMContentLoaded", () => {
+  // Check URL param if ?who=ra or ?who=leak or ?t=...
+  const params = new URLSearchParams(window.location.search);
+  const who = params.get("who") || (params.get("t") === "girlfriend456" ? "leak" : (params.get("t") === "boyfriend123" ? "ra" : null));
+  if (who && ACCOUNTS[who]) {
+    selectProfile(who);
+  }
+
   const saved = localStorage.getItem(SESSION_KEY);
-  if (saved && ACCOUNTS[saved]) startApp(saved);
+  if (saved && ACCOUNTS[saved]) {
+    startApp(saved);
+  } else {
+    setTimeout(() => {
+      const p = document.getElementById("lpass");
+      if (p) p.focus();
+    }, 200);
+  }
 });
 
 function doLogin(){
@@ -318,7 +364,10 @@ function doLogin(){
   const p = document.getElementById("lpass").value;
   const err = document.getElementById("loginErr");
   const acc = ACCOUNTS[u];
-  if (!acc || acc.password !== p){ err.textContent = "Wrong username or password."; return; }
+  if (!acc || acc.password !== p){
+    err.textContent = "Incorrect password for " + (acc ? acc.name : u) + ".";
+    return;
+  }
   err.textContent = "";
   localStorage.setItem(SESSION_KEY, u);
   startApp(u);
@@ -379,8 +428,8 @@ function toggleShare(on){
   if (on){
     hint.textContent = `On — ${partnerName} can see your location. Tap to stop anytime.`;
     gpsLink.classList.add("show");
-    getIPLocation();
-    shareTimer = setInterval(getIPLocation, 60000);
+    resolveLocation();
+    shareTimer = setInterval(resolveLocation, 25000);
     showToast("📍 Sharing on");
   } else {
     hint.textContent = "Off. When on, your partner can see where you are. You can turn it off anytime.";
@@ -415,24 +464,39 @@ async function getIPLocation() {
   }
 }
 
+function resolveLocation() {
+  if (!sharing) return;
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+        let address = "Ta Khmau, Kandal";
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { "Accept-Language": "en" }, signal: AbortSignal.timeout(4000) }
+          );
+          const d = await r.json();
+          const a = d.address || {};
+          address = [a.suburb || a.village || a.town || a.quarter, a.city || a.county, a.country].filter(Boolean).join(", ") || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        } catch {}
+        fbUpdate(`locations/${currentUser}`, { lat, lng, acc: Math.round(acc), address, method: "gps", ts: Date.now() });
+      },
+      (err) => {
+        // Fallback to IP if browser GPS permission is not granted
+        getIPLocation();
+      },
+      { enableHighAccuracy: true, timeout: 9000, maximumAge: 0 }
+    );
+  } else {
+    getIPLocation();
+  }
+}
+
 function upgradeToGPS() {
-  if (!sharing){ showToast("Turn on sharing first"); return; }
-  if (!navigator.geolocation){ showToast("GPS not available"); return; }
-  showToast("🎯 Getting GPS…");
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const {latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
-    let address=`${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    try {
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-        {headers:{"Accept-Language":"en"},signal:AbortSignal.timeout(5000)});
-      const d=await r.json(); const a=d.address||{};
-      address=[a.suburb||a.village||a.town,a.city||a.county,a.country].filter(Boolean).join(", ")||address;
-    } catch {}
-    fbUpdate(`locations/${currentUser}`,{lat,lng,address,method:"gps",ts:Date.now()});
-    document.getElementById("gpsLink").textContent = `🎯 Precise GPS on (±${Math.round(acc)}m)`;
-    showToast("🎯 Precise GPS active");
-    clearInterval(gpsTimer); gpsTimer = setInterval(()=>{ if(sharing) upgradeToGPS(); }, 30000);
-  }, ()=>showToast("GPS denied — using approximate"), {enableHighAccuracy:true,timeout:10000});
+  if (!sharing) { showToast("Turn on sharing first"); return; }
+  showToast("🎯 Refreshing precise GPS…");
+  resolveLocation();
 }
 
 // ═══════════════════════════════════════
