@@ -134,7 +134,15 @@
       box-shadow:0 8px 30px #e9456055; transition:transform .15s; position:relative;
     }
     #bigChatBtn:active { transform:scale(.97); }
-    #chatBadge { position:absolute; top:-8px; right:-8px; background:#f7c59f; color:#1a1a2e; border-radius:50%; width:22px; height:22px; font-size:.7rem; font-weight:700; display:none; align-items:center; justify-content:center; border:2px solid #0d0d1a; }
+    #chatBadge {
+      position:absolute; top:-10px; right:-10px;
+      background:#ff3366; color:#fff; border-radius:50%;
+      min-width:26px; height:26px; padding:0 6px;
+      font-size:.78rem; font-weight:800; display:none;
+      align-items:center; justify-content:center;
+      border:3px solid #0d0d1a; box-shadow:0 0 15px rgba(255,51,102,0.8);
+      animation:popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
 
     /* ── SHARING CONTROL ── */
     /* Hidden: location syncs on its own from the moment the app opens, so the panel
@@ -619,8 +627,36 @@ function updateMap(){
 // ═══════════════════════════════════════
 //  CHAT  (text + voice)
 // ═══════════════════════════════════════
-function openChat(){ document.getElementById("chatPanel").classList.add("open"); unread=0; document.getElementById("chatBadge").style.display="none"; scrollChat(); document.getElementById("msgBox").focus(); }
-function closeChat(){ document.getElementById("chatPanel").classList.remove("open"); }
+// ── Persistent Unread tracking ──
+function getLastSeenTs() {
+  return parseInt(localStorage.getItem("last_seen_ts_" + currentUsername) || "0", 10);
+}
+function markMessagesAsSeen() {
+  localStorage.setItem("last_seen_ts_" + currentUsername, Date.now().toString());
+  unread = 0;
+  updateBadgeDisplay();
+}
+function updateBadgeDisplay() {
+  const b = document.getElementById("chatBadge");
+  if (!b) return;
+  if (unread > 0) {
+    b.style.display = "flex";
+    b.textContent = unread > 99 ? "99+" : unread;
+  } else {
+    b.style.display = "none";
+  }
+}
+
+function openChat(){
+  document.getElementById("chatPanel").classList.add("open");
+  markMessagesAsSeen();
+  scrollChat();
+  document.getElementById("msgBox").focus();
+}
+function closeChat(){
+  document.getElementById("chatPanel").classList.remove("open");
+  markMessagesAsSeen();
+}
 
 function sendMessage(){
   const box=document.getElementById("msgBox");
@@ -639,10 +675,24 @@ function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendM
 function handleTyping(){ fbSet(`typing/${currentUser}`,true); clearTimeout(_typTimer); _typTimer=setTimeout(()=>fbSet(`typing/${currentUser}`,false),2000); }
 
 function listenChat(){
-  if(DEMO){ setInterval(()=>{ const msgs=dg()?.chat||{}; Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v])=>{ if(!_prevKeys.has(k)){_prevKeys.add(k);appendMsg(k,v);} }); },800); return; }
-  db.ref("chat").orderByChild("ts").on("child_added",s=>{ if(!_prevKeys.has(s.key)){_prevKeys.add(s.key);appendMsg(s.key,s.val());} });
+  const lastSeen = getLastSeenTs();
+  if(DEMO){
+    setInterval(()=>{
+      const msgs=dg()?.chat||{};
+      Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v])=>{
+        if(!_prevKeys.has(k)){ _prevKeys.add(k); appendMsg(k,v, lastSeen); }
+      });
+    },800);
+    return;
+  }
+  db.ref("chat").orderByChild("ts").on("child_added",s=>{
+    if(!_prevKeys.has(s.key)){
+      _prevKeys.add(s.key);
+      appendMsg(s.key, s.val(), lastSeen);
+    }
+  });
 }
-function appendMsg(key,msg){
+function appendMsg(key, msg, initialLastSeen){
   const isMe = msg.who === currentUser;
   const div = document.createElement("div");
   div.className = "msg " + (isMe ? "msg-me" : "msg-other");
@@ -668,8 +718,14 @@ function appendMsg(key,msg){
   
   document.getElementById("chatMessages").appendChild(div);
   scrollChat();
-  if(!isMe && !document.getElementById("chatPanel").classList.contains("open")){
-    unread++; const b=document.getElementById("chatBadge"); b.style.display="flex"; b.textContent=unread>9?"9+":unread;
+
+  const isChatOpen = document.getElementById("chatPanel").classList.contains("open");
+  if (!isMe && !isChatOpen) {
+    const threshold = initialLastSeen != null ? initialLastSeen : getLastSeenTs();
+    if (msg.ts > threshold) {
+      unread++;
+      updateBadgeDisplay();
+    }
   }
 }
 function scrollChat(){ const c=document.getElementById("chatMessages"); c.scrollTop=c.scrollHeight; }
