@@ -436,6 +436,9 @@ function startApp(username){
   listenLocations(); listenChat(); listenTyping(); listenOnline(); listenSeenReceipts();
   setupMic();
 
+  // If user opens the app, update seen timestamp
+  markMessagesAsSeen();
+
   // Location sharing defaults ON and auto-starts on open (no tap needed).
   // Only stays off if this person explicitly turned it off before.
   if (localStorage.getItem("us_share_"+currentUsername) !== "0") toggleShare(true);
@@ -678,7 +681,7 @@ function markMessagesAsSeen() {
   unread = 0;
   updateBadgeDisplay();
 
-  // Notify partner via Firebase that their messages were seen
+  // Broadcast seen receipt to Firebase so partner's messages update to '✓✓ Seen'
   if (currentUser) {
     fbSet(`seen/${currentUser}`, now);
   }
