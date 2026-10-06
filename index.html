@@ -421,6 +421,11 @@ function startApp(username){
     db.ref(".info/connected").on("value", s=>{ document.getElementById("liveDot").style.opacity = s.val()?1:0.4; });
   }
 
+  // Request notification/badge permissions on mobile
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+
   initMap();
   listenLocations(); listenChat(); listenTyping(); listenOnline();
   setupMic();
@@ -668,12 +673,29 @@ function markMessagesAsSeen() {
 }
 function updateBadgeDisplay() {
   const b = document.getElementById("chatBadge");
-  if (!b) return;
+  if (b) {
+    if (unread > 0) {
+      b.style.display = "flex";
+      b.textContent = unread > 99 ? "99+" : unread;
+    } else {
+      b.style.display = "none";
+    }
+  }
+
+  // 🔴 App Icon Badge (shows number 3 on iOS and Android home screen icon)
+  if ("setAppBadge" in navigator) {
+    if (unread > 0) {
+      navigator.setAppBadge(unread).catch(() => {});
+    } else {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
+
+  // Update browser tab title: e.g. "(3) 💕 Us"
   if (unread > 0) {
-    b.style.display = "flex";
-    b.textContent = unread > 99 ? "99+" : unread;
+    document.title = `(${unread}) 💕 Us`;
   } else {
-    b.style.display = "none";
+    document.title = "💕 Us";
   }
 }
 
