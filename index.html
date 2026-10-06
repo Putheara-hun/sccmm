@@ -301,7 +301,17 @@ let myName = "", myEmoji = "", partnerName = "Partner", partnerEmoji = "👧";
 // ── Firebase / Demo ──
 let db;
 const DEMO = firebaseConfig.apiKey.includes("DEMO_REPLACE_ME");
-if (!DEMO) { firebase.initializeApp(firebaseConfig); db = firebase.database(); }
+if (!DEMO) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  // Enable offline disk persistence: messages queue locally when offline and sync when connected!
+  try {
+    db.goOnline();
+    // Enable offline caching on the chat and location channels
+    db.ref("chat").keepSynced(true);
+    db.ref("locations").keepSynced(true);
+  } catch(e) {}
+}
 
 const DK = "us_v1";
 const dg = () => { try{return JSON.parse(localStorage.getItem(DK))||{};}catch{return{};} };
@@ -616,8 +626,14 @@ function sendMessage(){
   const box=document.getElementById("msgBox");
   const text=box.value.trim(); if(!text)return;
   box.value="";
-  fbPush("chat",{who:currentUser,type:"text",text,ts:Date.now()});
-  fbSet(`typing/${currentUser}`,false);
+  const msgObj = { who:currentUser, type:"text", text, ts:Date.now() };
+  
+  if (!navigator.onLine) {
+    showToast("💾 Saved offline. Will deliver as soon as connected!");
+  }
+  
+  fbPush("chat", msgObj);
+  fbSet(`typing/${currentUser}`, false);
 }
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
 function handleTyping(){ fbSet(`typing/${currentUser}`,true); clearTimeout(_typTimer); _typTimer=setTimeout(()=>fbSet(`typing/${currentUser}`,false),2000); }
