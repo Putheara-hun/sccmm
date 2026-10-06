@@ -177,10 +177,13 @@
     #chatMessages::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:3px; }
     .msg { max-width:80%; padding:10px 14px; border-radius:18px; font-size:.85rem; line-height:1.5; word-break:break-word; position:relative; }
     .msgSender { font-size:.68rem; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px; opacity:0.9; }
-    .msgTime { font-size:.62rem; color:#ffffff66; margin-top:4px; display:flex; align-items:center; justify-content:flex-end; gap:5px; }
-    .msgTick { font-size:.7rem; font-weight:700; display:inline-flex; align-items:center; gap:2px; }
-    .msgTick.sent { color:#a4b0be; }
-    .msgTick.seen { color:#2ed573; font-weight:800; }
+    .msgTime { font-size:.65rem; color:#ffffff70; margin-top:5px; display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+    .msgTick {
+      display:inline-flex; align-items:center; font-size:.78rem; font-weight:800;
+      padding:1px 4px; border-radius:4px;
+    }
+    .msgTick.sent { color:#dfe4ea; }
+    .msgTick.seen { color:#00ff88; text-shadow:0 0 6px rgba(0,255,136,0.6); }
     .msg-me { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
     .msg-other { background:rgba(255,255,255,.1); align-self:flex-start; border-bottom-left-radius:4px; color:#ffffffdd; border:1px solid rgba(255,255,255,.08); }
     .msg audio { max-width:200px; height:36px; }
@@ -771,12 +774,12 @@ function updateAllMessageTicks() {
     const msgTs = parseInt(div.getAttribute("data-ts") || "0", 10);
     const tickEl = div.querySelector(".msgTick");
     if (tickEl && msgTs > 0) {
-      if (msgTs <= partnerLastSeenTs) {
+      if (partnerLastSeenTs > 0 && msgTs <= partnerLastSeenTs) {
         tickEl.className = "msgTick seen";
-        tickEl.innerHTML = "Seen ✓✓";
+        tickEl.innerHTML = "✓✓ Seen";
       } else {
         tickEl.className = "msgTick sent";
-        tickEl.innerHTML = "Sent ✓";
+        tickEl.innerHTML = "✓ Sent";
       }
     }
   });
@@ -804,25 +807,33 @@ function appendMsg(key, msg, initialLastSeen){
   // Status indicators for sent messages
   let tickHtml = "";
   if (isMe) {
-    const isSeen = msg.ts <= partnerLastSeenTs;
-    tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}">${isSeen ? 'Seen ✓✓' : 'Sent ✓'}</span>`;
+    const isSeen = partnerLastSeenTs > 0 && msg.ts <= partnerLastSeenTs;
+    tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}">${isSeen ? '✓✓ Seen' : '✓ Sent'}</span>`;
   }
   
   div.innerHTML = `
     <div class="msgSender">${esc(senderLabel)}</div>
     ${bodyHtml}
-    <span class="msgTime">${msg.type === "voice" ? "🎤 " : ""}${t} ${tickHtml}</span>
+    <div class="msgTime">
+      <span>${msg.type === "voice" ? "🎤 " : ""}${t}</span>
+      ${tickHtml}
+    </div>
   `;
   
   document.getElementById("chatMessages").appendChild(div);
   scrollChat();
 
   const isChatOpen = document.getElementById("chatPanel").classList.contains("open");
-  if (!isMe && !isChatOpen) {
-    const threshold = initialLastSeen != null ? initialLastSeen : getLastSeenTs();
-    if (msg.ts > threshold) {
-      unread++;
-      updateBadgeDisplay();
+  if (!isMe) {
+    if (isChatOpen) {
+      // If chat is open when message arrives, immediately mark it as seen!
+      markMessagesAsSeen();
+    } else {
+      const threshold = initialLastSeen != null ? initialLastSeen : getLastSeenTs();
+      if (msg.ts > threshold) {
+        unread++;
+        updateBadgeDisplay();
+      }
     }
   }
 }
