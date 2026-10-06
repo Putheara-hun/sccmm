@@ -180,18 +180,13 @@
 <!-- ── LOGIN ── -->
 <div id="loginScreen">
   <div class="logo">💕</div>
-  <h1>Private Space</h1>
-  <p class="sub">Choose who you are and enter your password to enter.</p>
-  
-  <div class="login-tabs">
-    <button type="button" class="login-tab active" id="tabRa" onclick="selectProfile('ra')">👦 Ra</button>
-    <button type="button" class="login-tab" id="tabLeak" onclick="selectProfile('leak')">👧 Leak</button>
-  </div>
+  <h1>Sign In</h1>
+  <p class="sub">Enter your username and password to continue.</p>
 
   <div class="login-box">
-    <input id="luser" type="hidden" value="ra" />
-    <input id="lpass" type="password" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
-    <button id="loginBtn" onclick="doLogin()">Unlock & Enter</button>
+    <input id="luser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('lpass').focus()" />
+    <input id="lpass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+    <button id="loginBtn" onclick="doLogin()">Log In</button>
     <div id="loginErr"></div>
   </div>
 </div>
@@ -330,31 +325,14 @@ let locData = { p1:null, p2:null };
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
-function selectProfile(u) {
-  document.getElementById("luser").value = u;
-  document.getElementById("tabRa").classList.toggle("active", u === "ra");
-  document.getElementById("tabLeak").classList.toggle("active", u === "leak");
-  document.getElementById("loginErr").textContent = "";
-  const passInput = document.getElementById("lpass");
-  passInput.value = "";
-  passInput.focus();
-}
-
 window.addEventListener("DOMContentLoaded", () => {
-  // Check URL param if ?who=ra or ?who=leak or ?t=...
-  const params = new URLSearchParams(window.location.search);
-  const who = params.get("who") || (params.get("t") === "girlfriend456" ? "leak" : (params.get("t") === "boyfriend123" ? "ra" : null));
-  if (who && ACCOUNTS[who]) {
-    selectProfile(who);
-  }
-
   const saved = localStorage.getItem(SESSION_KEY);
   if (saved && ACCOUNTS[saved]) {
     startApp(saved);
   } else {
     setTimeout(() => {
-      const p = document.getElementById("lpass");
-      if (p) p.focus();
+      const u = document.getElementById("luser");
+      if (u) u.focus();
     }, 200);
   }
 });
@@ -363,11 +341,18 @@ function doLogin(){
   const u = document.getElementById("luser").value.trim().toLowerCase();
   const p = document.getElementById("lpass").value;
   const err = document.getElementById("loginErr");
-  const acc = ACCOUNTS[u];
-  if (!acc || acc.password !== p){
-    err.textContent = "Incorrect password for " + (acc ? acc.name : u) + ".";
+  
+  if (!u || !p) {
+    err.textContent = "Please enter both username and password.";
     return;
   }
+  
+  const acc = ACCOUNTS[u];
+  if (!acc || acc.password !== p){
+    err.textContent = "Invalid username or password.";
+    return;
+  }
+  
   err.textContent = "";
   localStorage.setItem(SESSION_KEY, u);
   startApp(u);
