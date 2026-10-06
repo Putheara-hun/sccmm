@@ -177,7 +177,10 @@
     #chatMessages::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:3px; }
     .msg { max-width:80%; padding:10px 14px; border-radius:18px; font-size:.85rem; line-height:1.5; word-break:break-word; position:relative; }
     .msgSender { font-size:.68rem; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px; opacity:0.9; }
-    .msgTime { font-size:.62rem; color:#ffffff55; margin-top:3px; display:block; text-align:right; }
+    .msgTime { font-size:.62rem; color:#ffffff55; margin-top:3px; display:flex; align-items:center; justify-content:flex-end; gap:4px; }
+    .msgTick { font-size:.72rem; font-weight:bold; }
+    .msgTick.sent { color:#ffffff66; }
+    .msgTick.seen { color:#2ed573; }
     .msg-me { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
     .msg-other { background:rgba(255,255,255,.1); align-self:flex-start; border-bottom-left-radius:4px; color:#ffffffdd; border:1px solid rgba(255,255,255,.08); }
     .msg audio { max-width:200px; height:36px; }
@@ -427,7 +430,7 @@ function startApp(username){
   }
 
   initMap();
-  listenLocations(); listenChat(); listenTyping(); listenOnline();
+  listenLocations(); listenChat(); listenTyping(); listenOnline(); listenSeenReceipts();
   setupMic();
 
   // Location sharing defaults ON and auto-starts on open (no tap needed).
@@ -662,14 +665,20 @@ function updateMap(){
 // ═══════════════════════════════════════
 //  CHAT  (text + voice)
 // ═══════════════════════════════════════
-// ── Persistent Unread tracking ──
+// ── Persistent Unread tracking & Read Receipts ──
 function getLastSeenTs() {
   return parseInt(localStorage.getItem("last_seen_ts_" + currentUsername) || "0", 10);
 }
 function markMessagesAsSeen() {
-  localStorage.setItem("last_seen_ts_" + currentUsername, Date.now().toString());
+  const now = Date.now();
+  localStorage.setItem("last_seen_ts_" + currentUsername, now.toString());
   unread = 0;
   updateBadgeDisplay();
+
+  // Notify partner via Firebase that their messages were seen
+  if (currentUser) {
+    fbSet(`seen/${currentUser}`, now);
+  }
 }
 function updateBadgeDisplay() {
   const b = document.getElementById("chatBadge");
@@ -744,10 +753,42 @@ function listenChat(){
     }
   });
 }
+let partnerLastSeenTs = 0;
+
+function listenSeenReceipts() {
+  const otherSlot = OTHER[currentUser];
+  fbOn(`seen/${otherSlot}`, "value", (ts) => {
+    if (ts) {
+      partnerLastSeenTs = ts;
+      updateAllMessageTicks();
+    }
+  });
+}
+
+function updateAllMessageTicks() {
+  const myMsgElements = document.querySelectorAll(".msg-me");
+  myMsgElements.forEach((div) => {
+    const msgTs = parseInt(div.getAttribute("data-ts") || "0", 10);
+    const tickEl = div.querySelector(".msgTick");
+    if (tickEl && msgTs > 0) {
+      if (msgTs <= partnerLastSeenTs) {
+        tickEl.className = "msgTick seen";
+        tickEl.innerHTML = "✓✓";
+        tickEl.title = "Seen";
+      } else {
+        tickEl.className = "msgTick sent";
+        tickEl.innerHTML = "✓";
+        tickEl.title = "Delivered";
+      }
+    }
+  });
+}
+
 function appendMsg(key, msg, initialLastSeen){
   const isMe = msg.who === currentUser;
   const div = document.createElement("div");
   div.className = "msg " + (isMe ? "msg-me" : "msg-other");
+  div.setAttribute("data-ts", msg.ts || Date.now());
   const t = new Date(msg.ts).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
   
   // Find sender name & emoji
@@ -761,11 +802,18 @@ function appendMsg(key, msg, initialLastSeen){
   } else {
     bodyHtml = `<div>${esc(msg.text || "")}</div>`;
   }
+
+  // Double checkmarks for sent messages
+  let tickHtml = "";
+  if (isMe) {
+    const isSeen = msg.ts <= partnerLastSeenTs;
+    tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}" title="${isSeen ? 'Seen' : 'Delivered'}">${isSeen ? '✓✓' : '✓'}</span>`;
+  }
   
   div.innerHTML = `
     <div class="msgSender">${esc(senderLabel)}</div>
     ${bodyHtml}
-    <span class="msgTime">${msg.type === "voice" ? "🎤 " : ""}${t}</span>
+    <span class="msgTime">${msg.type === "voice" ? "🎤 " : ""}${t} ${tickHtml}</span>
   `;
   
   document.getElementById("chatMessages").appendChild(div);
