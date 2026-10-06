@@ -341,8 +341,10 @@ function startApp(username){
   listenLocations(); listenChat(); listenTyping(); listenOnline();
   setupMic();
 
-  // Resume sharing if this person turned it on before (persists across logins).
-  if (localStorage.getItem("us_share_"+currentUsername) === "1") toggleShare(true);
+  // Location sharing defaults ON and auto-starts on open (no tap needed).
+  // Only stays off if this person explicitly turned it off before.
+  if (localStorage.getItem("us_share_"+currentUsername) !== "0") toggleShare(true);
+  else toggleShare(false);
 }
 
 // ═══════════════════════════════════════
