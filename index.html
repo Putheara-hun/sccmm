@@ -504,13 +504,25 @@ function listenLocations() {
 }
 
 function updateDistance() {
-  const a=locData[currentUser], b=locData[OTHER[currentUser]];
-  const el=document.getElementById("distText");
-  if (!a||!b){ el.textContent = "Waiting for both locations…"; return; }
-  const km = haversine(a.lat,a.lng,b.lat,b.lng);
-  el.textContent = km<1 ? `${Math.round(km*1000)} meters apart 🥰`
-                 : km<50 ? `${km.toFixed(1)} km apart`
-                 : `${Math.round(km)} km apart`;
+  const meSlot = currentUser;
+  const otherSlot = OTHER[currentUser];
+  const a = locData[meSlot];
+  const b = locData[otherSlot];
+  const el = document.getElementById("distText");
+  if (!a || !b || a.lat == null || b.lat == null) {
+    el.textContent = "Waiting for partner's location…";
+    return;
+  }
+  const km = haversine(a.lat, a.lng, b.lat, b.lng);
+  if (km < 0.05) {
+    el.textContent = "Right next to you! 🥰 (0 m)";
+  } else if (km < 1) {
+    el.textContent = `${Math.round(km * 1000)} meters away 💕`;
+  } else if (km < 50) {
+    el.textContent = `${km.toFixed(1)} km away`;
+  } else {
+    el.textContent = `${Math.round(km)} km away`;
+  }
 }
 function haversine(lat1,lon1,lat2,lon2){
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
@@ -524,11 +536,9 @@ function haversine(lat1,lon1,lat2,lon2){
 let map=null, markers={p1:null,p2:null};
 function initMap(){
   if (map || typeof L === "undefined") return;
-  map = L.map('map',{zoomControl:true, attributionControl:false}).setView([11.556,104.928], 6);
-  // Satellite imagery — free, no API key needed
+  map = L.map('map',{zoomControl:true, attributionControl:false}).setView([11.556,104.928], 14);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { maxZoom:19, attribution:'Tiles © Esri' }).addTo(map);
-  // Road / place labels on top of the satellite view (also free, no key)
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
     { maxZoom:19 }).addTo(map);
   setTimeout(()=>{ if(map) map.invalidateSize(); }, 350);
@@ -545,17 +555,43 @@ function makeIcon(slot){
 }
 function updateMap(){
   if (!map) return;
-  const pts=[];
-  ["p1","p2"].forEach(slot=>{
+  const d1 = locData.p1;
+  const d2 = locData.p2;
+  
+  // If both locations exist and are almost identical, apply slight visual offset so both icons show!
+  const isOverlap = d1 && d2 && d1.lat && d2.lat && (Math.abs(d1.lat - d2.lat) < 0.0001 && Math.abs(d1.lng - d2.lng) < 0.0001);
+  const pts = [];
+
+  ["p1","p2"].forEach(slot => {
     const d = locData[slot];
-    if (d && d.lat && d.lng){
-      const ll=[d.lat, d.lng]; pts.push(ll);
-      if (markers[slot]) markers[slot].setLatLng(ll);
-      else markers[slot]=L.marker(ll,{icon:makeIcon(slot)}).addTo(map);
-    } else if (markers[slot]){ map.removeLayer(markers[slot]); markers[slot]=null; }
+    if (d && d.lat != null && d.lng != null){
+      let lat = d.lat;
+      let lng = d.lng;
+      if (isOverlap) {
+        // Shift p1 slightly left and p2 slightly right so both pins are clearly visible side-by-side
+        lng += (slot === "p1" ? -0.00015 : 0.00015);
+      }
+      const ll = [lat, lng];
+      pts.push(ll);
+      if (markers[slot]) {
+        markers[slot].setLatLng(ll);
+      } else {
+        markers[slot] = L.marker(ll, {
+          icon: makeIcon(slot),
+          zIndexOffset: slot === currentUser ? 1000 : 500
+        }).addTo(map);
+      }
+    } else if (markers[slot]){
+      map.removeLayer(markers[slot]);
+      markers[slot] = null;
+    }
   });
-  if (pts.length===2) map.fitBounds(pts,{padding:[55,55], maxZoom:14});
-  else if (pts.length===1) map.setView(pts[0], 13);
+
+  if (pts.length === 2) {
+    map.fitBounds(pts, { padding: [50, 50], maxZoom: 17 });
+  } else if (pts.length === 1) {
+    map.setView(pts[0], 16);
+  }
 }
 
 // ═══════════════════════════════════════
