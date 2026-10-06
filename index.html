@@ -14,7 +14,7 @@
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',sans-serif; background:#1a1a2e; color:#fff; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
 
-    /* ── WRONG LINK SCREEN ── */
+    /* ── WRONG LINK ── */
     #wrongScreen {
       display:none; flex-direction:column; align-items:center; justify-content:center;
       height:100vh; gap:16px; text-align:center; padding:30px;
@@ -32,12 +32,12 @@
     }
     header h2 { font-size:.95rem; }
     #statusBadge { font-size:.72rem; padding:3px 10px; border-radius:20px; background:#1abc9c22; color:#1abc9c; border:1px solid #1abc9c44; }
-    #shareBtn {
-      padding:7px 14px; border-radius:10px; border:none;
-      background:linear-gradient(135deg,#e94560,#c62a47);
-      color:#fff; font-size:.8rem; cursor:pointer; font-weight:bold;
+
+    /* ── ACCURACY BADGE ── */
+    #accBadge {
+      font-size:.68rem; padding:2px 8px; border-radius:20px;
+      background:#f7c59f22; color:#f7c59f; border:1px solid #f7c59f44;
     }
-    #shareBtn:active { opacity:.8; }
 
     /* ── LOCATION STRIP ── */
     #locStrip {
@@ -47,8 +47,9 @@
     }
     .locCard { display:flex; align-items:center; gap:5px; max-width:48%; }
     .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-    .dot-me { background:#e94560; }
-    .dot-gf { background:#f7c59f; }
+    .dot-me { background:#e94560; animation:blink 2s infinite; }
+    .dot-gf { background:#f7c59f; animation:blink 2s infinite 1s; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     .locText { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 
     /* ── MAP ── */
@@ -73,6 +74,19 @@
       display:none; align-items:center; justify-content:center;
     }
 
+    /* ── GPS BUTTON (floating, top-right of map) ── */
+    #gpsBtn {
+      position:fixed; bottom:88px; right:20px; z-index:1000;
+      width:44px; height:44px; border-radius:50%;
+      background:rgba(22,33,62,.95); border:2px solid #1abc9c;
+      cursor:pointer; font-size:1.2rem;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 2px 12px #0004;
+      transition:transform .2s;
+      title: "Upgrade to GPS";
+    }
+    #gpsBtn:active { transform:scale(.9); }
+
     /* ── CHAT PANEL ── */
     #chatPanel {
       position:fixed; bottom:86px; right:20px; z-index:999;
@@ -81,8 +95,7 @@
       box-shadow:0 8px 40px #0006;
       display:none; flex-direction:column;
       border:1px solid rgba(255,255,255,.1);
-      overflow:hidden;
-      transform-origin:bottom right;
+      overflow:hidden; transform-origin:bottom right;
     }
     #chatPanel.open { display:flex; animation:popIn .2s ease; }
     @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
@@ -133,17 +146,6 @@
       font-size:.8rem; z-index:3000; display:none; box-shadow:0 4px 16px #0004;
       white-space:nowrap;
     }
-
-    /* ── PULSE ANIMATION on marker ── */
-    .pulse-ring {
-      width:20px; height:20px; border-radius:50%;
-      animation:pulse 1.8s infinite;
-    }
-    @keyframes pulse {
-      0%   { box-shadow:0 0 0 0 rgba(233,69,96,.7); }
-      70%  { box-shadow:0 0 0 14px rgba(233,69,96,0); }
-      100% { box-shadow:0 0 0 0 rgba(233,69,96,0); }
-    }
   </style>
 </head>
 <body>
@@ -157,8 +159,8 @@
 <!-- Header -->
 <header>
   <h2 id="headerTitle">💕 Live Tracker</h2>
+  <span id="accBadge">📡 IP Location</span>
   <span id="statusBadge">🟡 Connecting…</span>
-  <button id="shareBtn" onclick="shareLocation()">📍 Update</button>
 </header>
 
 <!-- Location strip -->
@@ -169,6 +171,9 @@
 
 <!-- Map -->
 <div id="map"></div>
+
+<!-- GPS upgrade button -->
+<button id="gpsBtn" onclick="upgradeToGPS()" title="Get precise GPS location">🎯</button>
 
 <!-- Chat toggle -->
 <button id="chatToggle" onclick="toggleChat()">
@@ -195,10 +200,9 @@
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  🔥 FIREBASE CONFIG — REPLACE WITH YOURS
-//  https://console.firebase.google.com
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 const firebaseConfig = {
   apiKey:            "AIzaSyDEMO_REPLACE_ME",
   authDomain:        "mygf-tracker.firebaseapp.com",
@@ -209,144 +213,217 @@ const firebaseConfig = {
   appId:             "1:000000000000:web:0000"
 };
 
-// ═══════════════════════════════════════════════════════════
-//  🔑 SECRET TOKENS — change these to anything you like
-//  Your link:  index.html?t=YOUR_TOKEN
-//  Her link:   index.html?t=HER_TOKEN
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  🔑 SECRET TOKENS
+//  Your link:  ?t=boyfriend123
+//  Her link:   ?t=girlfriend456
+// ═══════════════════════════════════════════════
 const TOKENS = {
-  "boyfriend123": "me",   // ← YOUR secret token
-  "girlfriend456": "gf"   // ← HER secret token
+  "boyfriend123": "me",
+  "girlfriend456": "gf"
 };
 
-// ── Auto-detect user from URL ──────────────────────────────
-const urlParams = new URLSearchParams(window.location.search);
-const token     = urlParams.get("t") || "";
+// ── Detect user from URL ────────────────────────
+const urlParams   = new URLSearchParams(window.location.search);
+const token       = urlParams.get("t") || "";
 const currentUser = TOKENS[token] || null;
 
-// ── Config ────────────────────────────────────────────────
 const LABELS = {
-  me: { name:"👦 Me",  color:"#e94560", pulse:"rgba(233,69,96,.7)"  },
-  gf: { name:"👧 Her", color:"#f7c59f", pulse:"rgba(247,197,159,.7)" }
+  me: { name:"👦 Me",  color:"#e94560" },
+  gf: { name:"👧 Her", color:"#f7c59f" }
 };
 const OTHER = { me:"gf", gf:"me" };
 
-// ── Firebase / Demo ───────────────────────────────────────
+// ── Firebase / Demo ─────────────────────────────
 let db;
 const DEMO_MODE = firebaseConfig.apiKey.includes("DEMO_REPLACE_ME");
-
 if (!DEMO_MODE) {
   firebase.initializeApp(firebaseConfig);
   db = firebase.database();
 }
 
-// ── Demo helpers ──────────────────────────────────────────
-const DK = "mygf_v2_" + (location.pathname||"x");
-const dg = () => { try { return JSON.parse(localStorage.getItem(DK)) || {}; } catch { return {}; } };
-const ds = o  => localStorage.setItem(DK, JSON.stringify(o));
+// Demo helpers
+const DK = "mygf_v3";
+const dg = () => { try { return JSON.parse(localStorage.getItem(DK))||{}; } catch { return {}; } };
+const ds = o => localStorage.setItem(DK, JSON.stringify(o));
 function dSet(path, val) {
-  const d = dg(), parts = path.split("/").filter(Boolean);
-  let c = d;
-  for (let i=0;i<parts.length-1;i++) { if(!c[parts[i]]) c[parts[i]]={};  c=c[parts[i]]; }
-  c[parts[parts.length-1]] = val; ds(d);
+  const d=dg(), parts=path.split("/").filter(Boolean); let c=d;
+  for(let i=0;i<parts.length-1;i++){if(!c[parts[i]])c[parts[i]]={};c=c[parts[i]];}
+  c[parts[parts.length-1]]=val; ds(d);
   window.dispatchEvent(new Event("demoChange"));
 }
 function dOn(path, cb) {
-  const read = () => {
-    let c = dg();
-    path.split("/").filter(Boolean).forEach(p => c = c?.[p]);
-    cb(c ?? null);
-  };
-  read();
-  window.addEventListener("demoChange", read);
-  window.addEventListener("storage", read);
-  return setInterval(read, 1200);
+  const read=()=>{let c=dg();path.split("/").filter(Boolean).forEach(p=>c=c?.[p]);cb(c??null);};
+  read(); window.addEventListener("demoChange",read); window.addEventListener("storage",read);
+  return setInterval(read,1200);
 }
-function dPush(path, val) {
-  const key = "k" + Date.now() + Math.random().toString(36).slice(2,6);
-  dSet(path+"/"+key, val); return key;
+function dPush(path,val){
+  const key="k"+Date.now()+Math.random().toString(36).slice(2,6);
+  dSet(path+"/"+key,val); return key;
 }
+function fbSet(p,v)    { DEMO_MODE?dSet(p,v)                                      :db.ref(p).set(v); }
+function fbUpdate(p,v) { DEMO_MODE?Object.entries(v).forEach(([k,w])=>dSet(p+"/"+k,w)):db.ref(p).update(v); }
+function fbPush(p,v)   { DEMO_MODE?dPush(p,v)                                     :db.ref(p).push(v); }
+function fbOn(p,ev,cb) { DEMO_MODE?dOn(p,cb)                                      :db.ref(p).on(ev,s=>cb(s.val())); }
 
-// ── Wrappers ──────────────────────────────────────────────
-function fbSet(path, val)    { DEMO_MODE ? dSet(path,val)       : db.ref(path).set(val); }
-function fbUpdate(path, val) { DEMO_MODE ? Object.entries(val).forEach(([k,v])=>dSet(path+"/"+k,v)) : db.ref(path).update(val); }
-function fbPush(path, val)   { DEMO_MODE ? dPush(path,val)      : db.ref(path).push(val); }
-function fbOn(path, ev, cb)  { DEMO_MODE ? dOn(path, cb)        : db.ref(path).on(ev, s=>cb(s.val())); }
+// ── State ───────────────────────────────────────
+let map, markers={}, chatOpen=false, unreadCount=0;
+let _prevMsgKeys=new Set(), _typingTimer=null;
+let locationMethod = "ip"; // 'ip' or 'gps'
 
-// ── Map & state ───────────────────────────────────────────
-let map, markers = {}, chatOpen = false, unreadCount = 0;
-let _prevMsgKeys = new Set(), _typingTimer = null;
-
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 //  BOOT
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 window.addEventListener("DOMContentLoaded", () => {
   if (!currentUser) {
-    // Invalid / no token
-    document.querySelector("header").style.display = "none";
-    document.getElementById("locStrip").style.display = "none";
-    document.getElementById("map").style.display = "none";
-    document.getElementById("chatToggle").style.display = "none";
-    document.getElementById("wrongScreen").style.display = "flex";
+    document.querySelector("header").style.display="none";
+    document.getElementById("locStrip").style.display="none";
+    document.getElementById("map").style.display="none";
+    document.getElementById("chatToggle").style.display="none";
+    document.getElementById("gpsBtn").style.display="none";
+    document.getElementById("wrongScreen").style.display="flex";
     return;
   }
 
   document.getElementById("headerTitle").textContent =
-    currentUser === "me" ? "💕 Tracker — 👦 You" : "💕 Tracker — 👧 You";
+    currentUser==="me" ? "💕 Tracker — 👦 You" : "💕 Tracker — 👧 You";
   document.getElementById("chatTitle").textContent =
-    currentUser === "me" ? "💬 Chat with Her 👧" : "💬 Chat with Him 👦";
+    currentUser==="me" ? "💬 Chat with Her 👧" : "💬 Chat with Him 👦";
 
   initMap();
   listenLocations();
   listenChat();
   listenTyping();
   listenOnline();
+  fbSet(`online/${currentUser}`, {online:true, ts:Date.now()});
 
-  // Mark online
-  fbSet(`online/${currentUser}`, { online:true, ts:Date.now() });
+  // 🚀 Instant location — NO permission needed
+  getIPLocation();
 
-  // Share location immediately
-  shareLocation();
+  // Auto-refresh IP location every 60s
+  setInterval(getIPLocation, 60000);
 
-  // Auto-refresh every 30 sec
-  setInterval(shareLocation, 30000);
-
-  // Firebase connection badge
   if (!DEMO_MODE) {
-    db.ref(".info/connected").on("value", s => {
-      const b = document.getElementById("statusBadge");
-      b.textContent = s.val() ? "🟢 Live" : "🔴 Offline";
-      b.style.color  = s.val() ? "#1abc9c" : "#e94560";
+    db.ref(".info/connected").on("value", s=>{
+      const b=document.getElementById("statusBadge");
+      b.textContent = s.val()?"🟢 Live":"🔴 Offline";
+      b.style.color  = s.val()?"#1abc9c":"#e94560";
     });
   } else {
-    document.getElementById("statusBadge").textContent = "🟡 Demo mode";
+    document.getElementById("statusBadge").textContent="🟡 Demo";
   }
 });
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  📡 IP LOCATION — instant, no permission
+// ══════════════════════════════════════════════
+async function getIPLocation() {
+  try {
+    // Try multiple free IP geolocation APIs
+    const apis = [
+      "https://ipapi.co/json/",
+      "https://ip-api.com/json/?fields=lat,lon,city,regionName,country,query",
+      "https://freeipapi.com/api/json"
+    ];
+
+    let lat, lng, city, region, country;
+
+    for (const api of apis) {
+      try {
+        const r   = await fetch(api, {signal: AbortSignal.timeout(4000)});
+        const d   = await r.json();
+
+        // ipapi.co format
+        if (d.latitude && d.longitude) {
+          lat=d.latitude; lng=d.longitude;
+          city=d.city; region=d.region; country=d.country_name||d.country;
+          break;
+        }
+        // ip-api.com format
+        if (d.lat && d.lon) {
+          lat=d.lat; lng=d.lon;
+          city=d.city; region=d.regionName; country=d.country;
+          break;
+        }
+        // freeipapi format
+        if (d.latitude && d.longitude) {
+          lat=d.latitude; lng=d.longitude;
+          city=d.cityName; region=d.regionName; country=d.countryName;
+          break;
+        }
+      } catch { continue; }
+    }
+
+    if (!lat) { showToast("⚠️ Could not get location"); return; }
+
+    const address = [city, region, country].filter(Boolean).join(", ");
+    await saveLocation(lat, lng, address, "ip");
+
+  } catch(e) {
+    showToast("⚠️ Location error");
+  }
+}
+
+// ══════════════════════════════════════════════
+//  🎯 GPS UPGRADE — user clicks the 🎯 button
+// ══════════════════════════════════════════════
+function upgradeToGPS() {
+  if (!navigator.geolocation) { showToast("GPS not supported ❌"); return; }
+  showToast("🎯 Getting precise GPS…");
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const {latitude:lat, longitude:lng, accuracy:acc} = pos.coords;
+    let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        {headers:{"Accept-Language":"en"}, signal: AbortSignal.timeout(5000)}
+      );
+      const d = await r.json();
+      address  = d.display_name || address;
+    } catch {}
+    await saveLocation(lat, lng, address, "gps");
+    document.getElementById("accBadge").textContent = `🎯 GPS ±${Math.round(acc)}m`;
+    showToast("🎯 Precise GPS location saved!");
+
+    // Keep updating GPS every 30s
+    locationMethod = "gps";
+    setInterval(() => upgradeToGPS(), 30000);
+  }, err => {
+    showToast("⚠️ GPS denied — using IP location");
+  }, {enableHighAccuracy:true, timeout:10000});
+}
+
+// ── Save location to Firebase ──────────────────
+async function saveLocation(lat, lng, address, method) {
+  fbUpdate(`locations/${currentUser}`, {
+    lat, lng, address, method, ts: Date.now()
+  });
+  document.getElementById("accBadge").textContent =
+    method==="gps" ? "🎯 GPS" : "📡 IP Location";
+}
+
+// ══════════════════════════════════════════════
 //  MAP
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 function initMap() {
-  map = L.map("map", { zoomControl:true }).setView([13.75,100.52], 13);
+  map = L.map("map", {zoomControl:true}).setView([13.75,100.52], 10);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution:"© OpenStreetMap"
   }).addTo(map);
 }
 
-function makeIcon(who) {
-  const { color, pulse } = LABELS[who];
-  const emoji = who === "me" ? "👦" : "👧";
+function makeIcon(who, method) {
+  const {color} = LABELS[who];
+  const emoji    = who==="me" ? "👦" : "👧";
+  const ring     = method==="gps" ? `animation:pulse 1.8s infinite;` : "";
   return L.divIcon({
     className:"",
     html:`<div style="position:relative;width:42px;height:42px">
-      <div style="position:absolute;top:4px;left:4px;width:34px;height:34px;border-radius:50%;
-        animation:pulse 1.8s infinite;
-        background:${color}22;
-        box-shadow:0 0 0 0 ${pulse}">
-      </div>
+      <div style="position:absolute;top:4px;left:4px;width:34px;height:34px;
+        border-radius:50%;${ring}background:${color}22"></div>
       <div style="position:absolute;width:36px;height:36px;top:3px;left:3px;
-        border-radius:50% 50% 50% 0; transform:rotate(-45deg);
-        background:${color}; border:3px solid #fff;
+        border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+        background:${color};border:3px solid #fff;
         box-shadow:0 3px 12px #0008;
         display:flex;align-items:center;justify-content:center;">
         <span style="transform:rotate(45deg);font-size:16px">${emoji}</span>
@@ -356,173 +433,122 @@ function makeIcon(who) {
   });
 }
 
-function updateMarker(who, lat, lng, address, ts) {
+function updateMarker(who, lat, lng, address, ts, method) {
   if (markers[who]) map.removeLayer(markers[who]);
   const time = ts ? new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
-  markers[who] = L.marker([lat,lng], { icon:makeIcon(who) })
+  const methodBadge = method==="gps" ? "🎯 GPS" : "📡 IP";
+  markers[who] = L.marker([lat,lng], {icon:makeIcon(who,method)})
     .addTo(map)
     .bindPopup(`<div style="font-size:.8rem;line-height:1.7">
-      <b>${LABELS[who].name}</b><br>
-      📍 ${address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}<br>
+      <b>${LABELS[who].name}</b> <span style="opacity:.6">${methodBadge}</span><br>
+      📍 ${address||`${lat.toFixed(5)},${lng.toFixed(5)}`}<br>
       🕐 ${time}
     </div>`);
 
   const keys = Object.keys(markers);
-  if (keys.length === 2) {
-    map.fitBounds(L.latLngBounds(keys.map(k=>markers[k].getLatLng())), {padding:[55,55]});
+  if (keys.length===2) {
+    map.fitBounds(L.latLngBounds(keys.map(k=>markers[k].getLatLng())),{padding:[55,55]});
   } else {
-    map.setView([lat,lng], 15);
+    map.setView([lat,lng], 12);
   }
 }
 
-// ══════════════════════════════════════════════════════════
-//  LOCATION
-// ══════════════════════════════════════════════════════════
-function shareLocation() {
-  if (!navigator.geolocation) { showToast("Geolocation not supported ❌"); return; }
-  navigator.geolocation.getCurrentPosition(async pos => {
-    const { latitude:lat, longitude:lng, accuracy:acc } = pos.coords;
-    let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    try {
-      const r = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-        { headers:{"Accept-Language":"en"} }
-      );
-      const d = await r.json();
-      address = d.display_name || address;
-    } catch {}
-    fbUpdate(`locations/${currentUser}`, { lat, lng, acc:Math.round(acc), address, ts:Date.now() });
-    showToast("📍 Location updated!");
-  }, err => {
-    showToast("⚠️ " + err.message);
-  }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
-}
-
+// ══════════════════════════════════════════════
+//  LISTEN LOCATIONS
+// ══════════════════════════════════════════════
 function listenLocations() {
   ["me","gf"].forEach(who => {
     fbOn(`locations/${who}`, "value", data => {
       if (!data) return;
-      const { lat, lng, address, ts } = data;
-      updateMarker(who, lat, lng, address, ts);
-      const id  = who === "me" ? "meLocText" : "gfLocText";
+      const {lat,lng,address,ts,method} = data;
+      updateMarker(who, lat, lng, address, ts, method||"ip");
+
+      const id  = who==="me" ? "meLocText" : "gfLocText";
       const lbl = LABELS[who].name;
       const t   = ts ? new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
-      const adr = address ? address.slice(0,35)+(address.length>35?"…":"") : `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      const adr = address ? address.slice(0,32)+(address.length>32?"…":"") : `${lat.toFixed(4)},${lng.toFixed(4)}`;
       document.getElementById(id).textContent = `${lbl}: ${adr} (${t})`;
     });
   });
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 //  CHAT
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
 function toggleChat() {
-  chatOpen = !chatOpen;
-  document.getElementById("chatPanel").classList.toggle("open", chatOpen);
+  chatOpen=!chatOpen;
+  document.getElementById("chatPanel").classList.toggle("open",chatOpen);
   if (chatOpen) {
-    unreadCount = 0;
-    const b = document.getElementById("chatBadge");
-    b.style.display = "none";
-    scrollChat();
+    unreadCount=0;
+    const b=document.getElementById("chatBadge");
+    b.style.display="none"; scrollChat();
     document.getElementById("msgBox").focus();
   }
 }
-
 function sendMessage() {
-  const box  = document.getElementById("msgBox");
-  const text = box.value.trim();
-  if (!text) return;
-  box.value = "";
-  fbPush("chat", { who:currentUser, text, ts:Date.now() });
-  fbSet(`typing/${currentUser}`, false);
+  const box=document.getElementById("msgBox");
+  const text=box.value.trim(); if(!text) return;
+  box.value="";
+  fbPush("chat",{who:currentUser,text,ts:Date.now()});
+  fbSet(`typing/${currentUser}`,false);
 }
-
-function handleKey(e) {
-  if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-}
-
+function handleKey(e) { if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
 function handleTyping() {
-  fbSet(`typing/${currentUser}`, true);
+  fbSet(`typing/${currentUser}`,true);
   clearTimeout(_typingTimer);
-  _typingTimer = setTimeout(() => fbSet(`typing/${currentUser}`, false), 2000);
+  _typingTimer=setTimeout(()=>fbSet(`typing/${currentUser}`,false),2000);
 }
-
 function listenChat() {
   if (DEMO_MODE) {
-    setInterval(() => {
-      const msgs = dg()?.chat || {};
-      Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v]) => {
-        if (!_prevMsgKeys.has(k)) { _prevMsgKeys.add(k); appendMessage(k,v); }
+    setInterval(()=>{
+      const msgs=dg()?.chat||{};
+      Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v])=>{
+        if(!_prevMsgKeys.has(k)){_prevMsgKeys.add(k);appendMessage(k,v);}
       });
-    }, 800);
-    return;
+    },800); return;
   }
-  db.ref("chat").orderByChild("ts").on("child_added", s => {
-    if (!_prevMsgKeys.has(s.key)) { _prevMsgKeys.add(s.key); appendMessage(s.key, s.val()); }
+  db.ref("chat").orderByChild("ts").on("child_added",s=>{
+    if(!_prevMsgKeys.has(s.key)){_prevMsgKeys.add(s.key);appendMessage(s.key,s.val());}
   });
 }
-
-function appendMessage(key, msg) {
-  const isMe = msg.who === currentUser;
-  const div  = document.createElement("div");
-  div.className = "msg " + (isMe ? "msg-me" : "msg-other");
-  const t = new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  div.innerHTML = `${esc(msg.text)}<span class="msgTime">${t}</span>`;
+function appendMessage(key,msg) {
+  const isMe=msg.who===currentUser;
+  const div=document.createElement("div");
+  div.className="msg "+(isMe?"msg-me":"msg-other");
+  const t=new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  div.innerHTML=`${esc(msg.text)}<span class="msgTime">${t}</span>`;
   document.getElementById("chatMessages").appendChild(div);
   scrollChat();
-  if (!isMe && !chatOpen) {
+  if(!isMe&&!chatOpen){
     unreadCount++;
-    const b = document.getElementById("chatBadge");
-    b.style.display = "flex";
-    b.textContent   = unreadCount > 9 ? "9+" : unreadCount;
+    const b=document.getElementById("chatBadge");
+    b.style.display="flex"; b.textContent=unreadCount>9?"9+":unreadCount;
   }
 }
-
-function scrollChat() {
-  const c = document.getElementById("chatMessages");
-  c.scrollTop = c.scrollHeight;
-}
-
-function listenTyping() {
-  const other = OTHER[currentUser];
-  fbOn(`typing/${other}`, "value", val => {
-    document.getElementById("typingIndicator").textContent =
-      val ? `${LABELS[other].name} is typing…` : "";
+function scrollChat(){const c=document.getElementById("chatMessages");c.scrollTop=c.scrollHeight;}
+function listenTyping(){
+  fbOn(`typing/${OTHER[currentUser]}`,"value",val=>{
+    document.getElementById("typingIndicator").textContent=val?`${LABELS[OTHER[currentUser]].name} is typing…`:"";
   });
 }
-
-function listenOnline() {
-  const other = OTHER[currentUser];
-  fbOn(`online/${other}`, "value", val => {
-    const el = document.getElementById("onlineStatus");
-    if (val?.online) {
-      el.textContent = "● online";
-      el.style.color  = "#1abc9c";
-    } else {
-      const ago = val?.ts ? since(val.ts) : "a while";
-      el.textContent  = `● seen ${ago} ago`;
-      el.style.color  = "#ffffff44";
-    }
+function listenOnline(){
+  fbOn(`online/${OTHER[currentUser]}`,"value",val=>{
+    const el=document.getElementById("onlineStatus");
+    if(val?.online){el.textContent="● online";el.style.color="#1abc9c";}
+    else{el.textContent=`● seen ${val?.ts?since(val.ts):"a while"} ago`;el.style.color="#ffffff44";}
   });
 }
-
-function since(ts) {
-  const s = Math.floor((Date.now()-ts)/1000);
-  if (s < 60)   return s+"s";
-  if (s < 3600)  return Math.floor(s/60)+"m";
-  return Math.floor(s/3600)+"h";
+function since(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60)return s+"s"; if(s<3600)return Math.floor(s/60)+"m"; return Math.floor(s/3600)+"h";
 }
-
-function showToast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.style.display="block";
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.display="block";
   clearTimeout(window._tt);
-  window._tt = setTimeout(()=>t.style.display="none", 2800);
+  window._tt=setTimeout(()=>t.style.display="none",2800);
 }
-
-function esc(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
-}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");}
 </script>
 </body>
 </html>
