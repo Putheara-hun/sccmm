@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>💕</title>
+  <title>💕 Us</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <style>
@@ -17,10 +17,9 @@
       background:#0d0d1a;
       display:flex; flex-direction:column;
       align-items:center; justify-content:center;
-      position:relative;
+      position:relative; color:#fff;
     }
 
-    /* ── ANIMATED BACKGROUND ── */
     .bg {
       position:fixed; inset:0; z-index:0;
       background: radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 60%),
@@ -28,287 +27,175 @@
                   radial-gradient(ellipse at 60% 80%, #1a0520 0%, transparent 60%),
                   #0d0d1a;
     }
-    /* floating hearts background */
     .hearts { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
-    .heart {
-      position:absolute; bottom:-40px;
-      font-size:1.2rem; opacity:0;
-      animation: floatUp linear infinite;
-    }
+    .heart { position:absolute; bottom:-40px; font-size:1.2rem; opacity:0; animation: floatUp linear infinite; }
     @keyframes floatUp {
       0%   { transform:translateY(0) scale(1) rotate(-10deg); opacity:.15; }
       50%  { opacity:.08; }
       100% { transform:translateY(-110vh) scale(1.3) rotate(10deg); opacity:0; }
     }
 
-    /* ── WRONG LINK ── */
-    #wrongScreen {
-      display:none; position:fixed; inset:0; z-index:999;
-      flex-direction:column; align-items:center; justify-content:center;
-      gap:14px; text-align:center; padding:30px;
-      background:#0d0d1a;
+    /* ── LOGIN ── */
+    #loginScreen {
+      position:fixed; inset:0; z-index:500;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:16px; padding:30px; text-align:center;
     }
-    #wrongScreen .lock { font-size:4rem; }
-    #wrongScreen p { color:#ffffff44; font-size:.9rem; }
+    #loginScreen .logo { font-size:3.4rem; }
+    #loginScreen h1 { font-size:1.3rem; font-weight:600; }
+    #loginScreen p.sub { color:#ffffff66; font-size:.82rem; max-width:300px; line-height:1.5; }
+    .login-box { width:min(320px,calc(100vw - 48px)); display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+    .login-box input {
+      background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+      border-radius:14px; padding:13px 16px; color:#fff; font-size:.95rem;
+      outline:none; font-family:inherit;
+    }
+    .login-box input::placeholder { color:#ffffff40; }
+    .login-box input:focus { border-color:#e9456088; }
+    #loginBtn {
+      background:linear-gradient(135deg,#e94560,#c62a47); border:none; border-radius:14px;
+      padding:14px; color:#fff; font-size:1rem; font-weight:600; cursor:pointer;
+      font-family:inherit; margin-top:4px;
+    }
+    #loginBtn:active { transform:scale(.98); }
+    #loginErr { color:#ff6b81; font-size:.78rem; min-height:16px; }
 
     /* ── MAIN CARD ── */
     .card {
       position:relative; z-index:10;
       width:min(360px, calc(100vw - 32px));
-      display:flex; flex-direction:column; align-items:center;
-      gap:20px;
+      display:flex; flex-direction:column; align-items:center; gap:18px;
     }
-
-    /* ── TOP STATUS ── */
-    .top-row {
-      display:flex; align-items:center; justify-content:space-between;
-      width:100%; padding:0 4px;
-    }
-    #liveDot {
-      display:flex; align-items:center; gap:6px;
-      font-size:.72rem; color:#ffffff66;
-    }
-    #liveDot span {
-      width:7px; height:7px; border-radius:50%; background:#1abc9c;
-      animation:blink 2s infinite;
-    }
+    .top-row { display:flex; align-items:center; justify-content:space-between; width:100%; padding:0 4px; }
+    #liveDot { display:flex; align-items:center; gap:6px; font-size:.72rem; color:#ffffff66; }
+    #liveDot span { width:7px; height:7px; border-radius:50%; background:#1abc9c; animation:blink 2s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-    #locMethod {
-      font-size:.68rem; color:#ffffff33;
-    }
+    #logoutBtn { background:none; border:none; color:#ffffff44; font-size:.72rem; cursor:pointer; font-family:inherit; }
 
-    /* ── AVATAR SECTION ── */
-    .avatars {
-      display:flex; align-items:center; justify-content:center; gap:0;
-      width:100%;
-    }
-    .avatar-wrap {
-      display:flex; flex-direction:column; align-items:center; gap:8px;
-      flex:1;
-    }
-    .avatar {
-      width:80px; height:80px; border-radius:50%;
-      display:flex; align-items:center; justify-content:center;
-      font-size:2.2rem;
-      border:3px solid transparent;
-      position:relative;
-    }
-    .avatar-me {
-      background:linear-gradient(135deg,#e94560,#c62a47);
-      box-shadow:0 0 0 4px #e9456022, 0 8px 30px #e9456055;
-    }
-    .avatar-gf {
-      background:linear-gradient(135deg,#8e44ad,#e74c9b);
-      box-shadow:0 0 0 4px #e74c9b22, 0 8px 30px #e74c9b55;
-    }
-    .avatar-name {
-      font-size:.75rem; color:#ffffff88; font-weight:400; letter-spacing:.5px;
-    }
-    .avatar-loc {
-      font-size:.65rem; color:#ffffff44; max-width:120px;
-      text-align:center; line-height:1.4;
-    }
-    .avatar-time {
-      font-size:.6rem; color:#ffffff22; margin-top:2px;
-    }
-
-    /* online indicator on avatar */
-    .online-dot {
-      position:absolute; bottom:4px; right:4px;
-      width:14px; height:14px; border-radius:50%;
-      background:#1abc9c; border:2px solid #0d0d1a;
-      display:none;
-    }
+    .avatars { display:flex; align-items:center; justify-content:center; width:100%; }
+    .avatar-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; }
+    .avatar { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:2.2rem; border:3px solid transparent; position:relative; }
+    .avatar-me { background:linear-gradient(135deg,#e94560,#c62a47); box-shadow:0 0 0 4px #e9456022, 0 8px 30px #e9456055; }
+    .avatar-gf { background:linear-gradient(135deg,#8e44ad,#e74c9b); box-shadow:0 0 0 4px #e74c9b22, 0 8px 30px #e74c9b55; }
+    .avatar-name { font-size:.75rem; color:#ffffff88; font-weight:400; letter-spacing:.5px; }
+    .avatar-loc { font-size:.65rem; color:#ffffff44; max-width:120px; text-align:center; line-height:1.4; }
+    .avatar-time { font-size:.6rem; color:#ffffff22; margin-top:2px; }
+    .online-dot { position:absolute; bottom:4px; right:4px; width:14px; height:14px; border-radius:50%; background:#1abc9c; border:2px solid #0d0d1a; display:none; }
     .online-dot.show { display:block; }
+    .heart-connector { font-size:1.6rem; flex-shrink:0; margin:0 8px 48px; animation:pulse-heart 1.4s ease-in-out infinite; }
+    @keyframes pulse-heart { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
 
-    /* heart connector */
-    .heart-connector {
-      font-size:1.6rem; flex-shrink:0; margin:0 8px;
-      animation:pulse-heart 1.4s ease-in-out infinite;
-      margin-bottom:48px;
-    }
-    @keyframes pulse-heart {
-      0%,100%{transform:scale(1)} 50%{transform:scale(1.2)}
-    }
-
-    /* ── DISTANCE BADGE ── */
-    .dist-badge {
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:20px; padding:8px 20px;
-      font-size:.78rem; color:#ffffff77;
-      display:flex; align-items:center; gap:8px;
-    }
+    .dist-badge { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:8px 20px; font-size:.78rem; color:#ffffff77; display:flex; align-items:center; gap:8px; }
     .dist-badge span { color:#fff; font-weight:600; }
 
-    /* ── CHAT BUTTON (big center) ── */
     #bigChatBtn {
-      width:100%; padding:16px;
-      background:linear-gradient(135deg,#e94560,#c62a47);
-      border:none; border-radius:18px;
-      color:#fff; font-size:1rem; font-weight:600;
-      cursor:pointer; letter-spacing:.5px;
-      display:flex; align-items:center; justify-content:center; gap:10px;
-      box-shadow:0 8px 30px #e9456055;
-      transition:transform .15s, box-shadow .15s;
-      position:relative;
+      width:100%; padding:16px; background:linear-gradient(135deg,#e94560,#c62a47);
+      border:none; border-radius:18px; color:#fff; font-size:1rem; font-weight:600;
+      cursor:pointer; letter-spacing:.5px; display:flex; align-items:center; justify-content:center; gap:10px;
+      box-shadow:0 8px 30px #e9456055; transition:transform .15s; position:relative;
     }
-    #bigChatBtn:active { transform:scale(.97); box-shadow:0 4px 16px #e9456044; }
-    #chatBadge {
-      position:absolute; top:-8px; right:-8px;
-      background:#f7c59f; color:#1a1a2e;
-      border-radius:50%; width:22px; height:22px;
-      font-size:.7rem; font-weight:700;
-      display:none; align-items:center; justify-content:center;
-      border:2px solid #0d0d1a;
-    }
+    #bigChatBtn:active { transform:scale(.97); }
+    #chatBadge { position:absolute; top:-8px; right:-8px; background:#f7c59f; color:#1a1a2e; border-radius:50%; width:22px; height:22px; font-size:.7rem; font-weight:700; display:none; align-items:center; justify-content:center; border:2px solid #0d0d1a; }
 
-    /* ── GPS UPGRADE BUTTON ── */
-    #gpsBtn {
-      width:100%; padding:12px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:14px; color:#ffffff88;
-      font-size:.8rem; cursor:pointer;
-      display:flex; align-items:center; justify-content:center; gap:8px;
-      font-family:inherit; transition:background .2s;
+    /* ── SHARING CONTROL ── */
+    #shareBox {
+      width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+      border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
     }
-    #gpsBtn:active { background:rgba(255,255,255,.08); }
-    #gpsBtn.gps-on { border-color:#1abc9c44; color:#1abc9c; background:#1abc9c11; }
+    .share-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .share-label { font-size:.82rem; color:#ffffffcc; display:flex; align-items:center; gap:7px; }
+    .switch { position:relative; width:46px; height:26px; flex-shrink:0; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; inset:0; background:#ffffff1a; border-radius:26px; transition:.25s; cursor:pointer; }
+    .slider:before { content:""; position:absolute; height:20px; width:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.25s; }
+    .switch input:checked + .slider { background:#1abc9c; }
+    .switch input:checked + .slider:before { transform:translateX(20px); }
+    #shareHint { font-size:.68rem; color:#ffffff44; line-height:1.4; }
+    #gpsLink { font-size:.72rem; color:#1abc9c; cursor:pointer; text-decoration:underline; display:none; }
+    #gpsLink.show { display:inline; }
 
-    /* ── CHAT PANEL ── */
-    #chatPanel {
-      position:fixed; inset:0; z-index:100;
-      display:none; flex-direction:column;
-      background:#0d0d1a;
-    }
+    /* ── CHAT ── */
+    #chatPanel { position:fixed; inset:0; z-index:100; display:none; flex-direction:column; background:#0d0d1a; }
     #chatPanel.open { display:flex; }
-
-    #chatNav {
-      display:flex; align-items:center; gap:12px;
-      padding:14px 16px;
-      background:rgba(255,255,255,.03);
-      border-bottom:1px solid rgba(255,255,255,.06);
-      flex-shrink:0;
-    }
-    #backBtn {
-      background:none; border:none; color:#fff;
-      font-size:1.3rem; cursor:pointer; padding:4px 8px;
-    }
-    #chatNavTitle {
-      flex:1; font-size:.95rem; font-weight:600;
-    }
+    #chatNav { display:flex; align-items:center; gap:12px; padding:14px 16px; background:rgba(255,255,255,.03); border-bottom:1px solid rgba(255,255,255,.06); flex-shrink:0; }
+    #backBtn { background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer; padding:4px 8px; }
+    #chatNavTitle { flex:1; font-size:.95rem; font-weight:600; }
     #onlineStatus { font-size:.72rem; color:#1abc9c; }
-
-    #chatMessages {
-      flex:1; overflow-y:auto; padding:16px;
-      display:flex; flex-direction:column; gap:8px;
-    }
+    #chatMessages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
     #chatMessages::-webkit-scrollbar { width:3px; }
     #chatMessages::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:3px; }
-
     .msg { max-width:78%; padding:10px 14px; border-radius:18px; font-size:.85rem; line-height:1.5; word-break:break-word; }
     .msgTime { font-size:.62rem; color:#ffffff44; margin-top:3px; display:block; }
-    .msg-me    { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
+    .msg-me { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
     .msg-other { background:rgba(255,255,255,.08); align-self:flex-start; border-bottom-left-radius:4px; color:#ffffffdd; }
-
+    .msg audio { max-width:200px; height:36px; }
     #typingIndicator { font-size:.72rem; color:#ffffff33; padding:0 16px 6px; min-height:18px; flex-shrink:0; }
-
-    #chatInputRow {
-      display:flex; padding:12px 14px; gap:10px; flex-shrink:0;
-      background:rgba(255,255,255,.03);
-      border-top:1px solid rgba(255,255,255,.06);
-    }
-    #msgBox {
-      flex:1; background:rgba(255,255,255,.07);
-      border:1px solid rgba(255,255,255,.1);
-      border-radius:14px; padding:10px 14px;
-      color:#fff; font-size:.88rem; outline:none;
-      resize:none; max-height:80px; font-family:inherit;
-    }
+    #chatInputRow { display:flex; padding:12px 14px; gap:8px; flex-shrink:0; align-items:flex-end; background:rgba(255,255,255,.03); border-top:1px solid rgba(255,255,255,.06); }
+    #msgBox { flex:1; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:10px 14px; color:#fff; font-size:.88rem; outline:none; resize:none; max-height:80px; font-family:inherit; }
     #msgBox::placeholder { color:#ffffff33; }
-    #sendBtn {
-      background:linear-gradient(135deg,#e94560,#c62a47);
-      border:none; border-radius:14px; padding:10px 16px;
-      color:#fff; cursor:pointer; font-size:1.1rem; flex-shrink:0;
-    }
+    .iconBtn { background:linear-gradient(135deg,#e94560,#c62a47); border:none; border-radius:14px; padding:10px 15px; color:#fff; cursor:pointer; font-size:1.1rem; flex-shrink:0; }
+    #micBtn.recording { background:#ff3b5c; animation:blink 1s infinite; }
+    #recHint { font-size:.72rem; color:#ff6b81; padding:0 16px 4px; min-height:16px; }
 
-    /* ── TOAST ── */
-    #toast {
-      position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
-      background:rgba(255,255,255,.1); backdrop-filter:blur(10px);
-      color:#fff; padding:8px 20px; border-radius:20px;
-      font-size:.8rem; z-index:9999; display:none;
-      border:1px solid rgba(255,255,255,.15);
-      white-space:nowrap;
-    }
+    #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,.1); backdrop-filter:blur(10px); color:#fff; padding:8px 20px; border-radius:20px; font-size:.8rem; z-index:9999; display:none; border:1px solid rgba(255,255,255,.15); white-space:nowrap; }
   </style>
 </head>
 <body>
 
-<!-- BG -->
 <div class="bg"></div>
 <div class="hearts" id="hearts"></div>
 
-<!-- Wrong link -->
-<div id="wrongScreen">
-  <div class="lock">🔒</div>
-  <p>This link is not valid.<br>Ask for the correct link!</p>
+<!-- ── LOGIN ── -->
+<div id="loginScreen">
+  <div class="logo">💕</div>
+  <h1>Just Us</h1>
+  <p class="sub">A private space for two. Log in with your own account — you'll both see each other.</p>
+  <div class="login-box">
+    <input id="luser" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" />
+    <input id="lpass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+    <button id="loginBtn" onclick="doLogin()">Log in</button>
+    <div id="loginErr"></div>
+  </div>
 </div>
 
-<!-- Main UI -->
+<!-- ── MAIN ── -->
 <div class="card" id="mainCard" style="display:none">
-
-  <!-- Top row -->
   <div class="top-row">
     <div id="liveDot"><span></span> Live</div>
-    <div id="locMethod">📡 Locating…</div>
+    <button id="logoutBtn" onclick="doLogout()">Log out</button>
   </div>
 
-  <!-- Avatars -->
   <div class="avatars">
     <div class="avatar-wrap">
-      <div class="avatar avatar-me">
-        👦
-        <div class="online-dot" id="dotMe"></div>
-      </div>
-      <div class="avatar-name" id="nameMe">Me</div>
-      <div class="avatar-loc" id="locMe">…</div>
+      <div class="avatar avatar-me" id="avMe">👦<div class="online-dot show" id="dotMe"></div></div>
+      <div class="avatar-name" id="nameMe">You</div>
+      <div class="avatar-loc" id="locMe">Location off</div>
       <div class="avatar-time" id="timeMe"></div>
     </div>
-
     <div class="heart-connector">💗</div>
-
     <div class="avatar-wrap">
-      <div class="avatar avatar-gf">
-        👧
-        <div class="online-dot" id="dotGf"></div>
-      </div>
-      <div class="avatar-name" id="nameGf">Her</div>
+      <div class="avatar avatar-gf" id="avGf">👧<div class="online-dot" id="dotGf"></div></div>
+      <div class="avatar-name" id="nameGf">Partner</div>
       <div class="avatar-loc" id="locGf">…</div>
       <div class="avatar-time" id="timeGf"></div>
     </div>
   </div>
 
-  <!-- Distance -->
-  <div class="dist-badge" id="distBadge">
-    📍 <span id="distText">Calculating distance…</span>
+  <div class="dist-badge" id="distBadge">📍 <span id="distText">Turn on sharing to see distance</span></div>
+
+  <button id="bigChatBtn" onclick="openChat()">💬 &nbsp;Open Chat<span id="chatBadge"></span></button>
+
+  <div id="shareBox">
+    <div class="share-row">
+      <div class="share-label">📍 Share my location</div>
+      <label class="switch"><input type="checkbox" id="shareToggle" onchange="toggleShare(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div id="shareHint">Off. When on, your partner can see where you are. You can turn it off anytime.</div>
+    <span id="gpsLink" onclick="upgradeToGPS()">🎯 Use precise GPS instead of approximate</span>
   </div>
-
-  <!-- Chat button -->
-  <button id="bigChatBtn" onclick="openChat()">
-    💬 &nbsp;Send a Message
-    <span id="chatBadge"></span>
-  </button>
-
-  <!-- GPS upgrade -->
-  <button id="gpsBtn" onclick="upgradeToGPS()">
-    🎯 Tap for more precise location
-  </button>
-
 </div>
 
-<!-- Chat panel -->
+<!-- ── CHAT ── -->
 <div id="chatPanel">
   <div id="chatNav">
     <button id="backBtn" onclick="closeChat()">←</button>
@@ -316,118 +203,176 @@
     <div id="onlineStatus">● …</div>
   </div>
   <div id="chatMessages"></div>
+  <div id="recHint"></div>
   <div id="typingIndicator"></div>
   <div id="chatInputRow">
-    <textarea id="msgBox" placeholder="Type something sweet… 💕" rows="1"
-      onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
-    <button id="sendBtn" onclick="sendMessage()">➤</button>
+    <textarea id="msgBox" placeholder="Type something sweet… 💕" rows="1" onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
+    <button id="micBtn" class="iconBtn" title="Hold to record voice">🎤</button>
+    <button id="sendBtn" class="iconBtn" onclick="sendMessage()">➤</button>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
 // ═══════════════════════════════════════════
-//  🔥 FIREBASE CONFIG — REPLACE WITH YOURS
+//  🔥 FIREBASE CONFIG — paste yours here so the
+//     two phones actually sync. Until you do, the
+//     app runs in local demo mode (one device only).
 // ═══════════════════════════════════════════
 const firebaseConfig = {
   apiKey:            "AIzaSyDEMO_REPLACE_ME",
-  authDomain:        "mygf-tracker.firebaseapp.com",
-  databaseURL:       "https://mygf-tracker-default-rtdb.firebaseio.com",
-  projectId:         "mygf-tracker",
-  storageBucket:     "mygf-tracker.appspot.com",
+  authDomain:        "your-app.firebaseapp.com",
+  databaseURL:       "https://your-app-default-rtdb.firebaseio.com",
+  projectId:         "your-app",
+  storageBucket:     "your-app.appspot.com",
   messagingSenderId: "000000000000",
   appId:             "1:000000000000:web:0000"
 };
 
 // ═══════════════════════════════════════════
-//  🔑 TOKENS  →  your link: ?t=boyfriend123
-//              her link:   ?t=girlfriend456
+//  👥 THE TWO ACCOUNTS  — change these!
+//  Each of you logs in with your OWN username + password.
+//  "slot" must be p1 for one person and p2 for the other.
+//  NOTE: this is a light gate for a 2-person app, not bank
+//  security — the check runs in the browser. Use passwords
+//  you don't reuse elsewhere.
 // ═══════════════════════════════════════════
-const TOKENS = { "boyfriend123":"me", "girlfriend456":"gf" };
+const ACCOUNTS = {
+  "putheara": { password:"change-me-1", slot:"p1", name:"Putheara", emoji:"👦" },
+  "partner":  { password:"change-me-2", slot:"p2", name:"Partner",  emoji:"👧" },
+};
+const OTHER = { p1:"p2", p2:"p1" };
 
-const token       = new URLSearchParams(location.search).get("t") || "";
-const currentUser = TOKENS[token] || null;
-const OTHER       = { me:"gf", gf:"me" };
+// ── session ──
+const SESSION_KEY = "us_session";
+let currentUser = null;   // slot: p1 / p2
+let currentUsername = null;
+let myName = "", myEmoji = "", partnerName = "Partner", partnerEmoji = "👧";
 
-// ── Firebase / Demo ─────────────────────
+// ── Firebase / Demo ──
 let db;
 const DEMO = firebaseConfig.apiKey.includes("DEMO_REPLACE_ME");
 if (!DEMO) { firebase.initializeApp(firebaseConfig); db = firebase.database(); }
 
-const DK = "mygf_v3";
+const DK = "us_v1";
 const dg = () => { try{return JSON.parse(localStorage.getItem(DK))||{};}catch{return{};} };
 const ds = o => localStorage.setItem(DK, JSON.stringify(o));
-function dSet(p,v){
-  const d=dg(),pts=p.split("/").filter(Boolean);let c=d;
+function dSet(p,v){ const d=dg(),pts=p.split("/").filter(Boolean);let c=d;
   for(let i=0;i<pts.length-1;i++){if(!c[pts[i]])c[pts[i]]={};c=c[pts[i]];}
-  c[pts[pts.length-1]]=v;ds(d);window.dispatchEvent(new Event("dc"));
-}
-function dOn(p,cb){
-  const r=()=>{let c=dg();p.split("/").filter(Boolean).forEach(k=>c=c?.[k]);cb(c??null);};
-  r();window.addEventListener("dc",r);window.addEventListener("storage",r);
-  return setInterval(r,1200);
-}
+  if(v===null) delete c[pts[pts.length-1]]; else c[pts[pts.length-1]]=v; ds(d);
+  window.dispatchEvent(new Event("dc")); }
+function dOn(p,cb){ const r=()=>{let c=dg();p.split("/").filter(Boolean).forEach(k=>c=c?.[k]);cb(c??null);};
+  r();window.addEventListener("dc",r);window.addEventListener("storage",r);return setInterval(r,1200); }
 function dPush(p,v){const k="k"+Date.now()+Math.random().toString(36).slice(2,5);dSet(p+"/"+k,v);return k;}
-function fbSet(p,v)    {DEMO?dSet(p,v)                                       :db.ref(p).set(v);}
+function fbSet(p,v)    {DEMO?dSet(p,v):db.ref(p).set(v);}
 function fbUpdate(p,v) {DEMO?Object.entries(v).forEach(([k,w])=>dSet(p+"/"+k,w)):db.ref(p).update(v);}
-function fbPush(p,v)   {DEMO?dPush(p,v)                                      :db.ref(p).push(v);}
-function fbOn(p,ev,cb) {DEMO?dOn(p,cb)                                       :db.ref(p).on(ev,s=>cb(s.val()));}
+function fbPush(p,v)   {DEMO?dPush(p,v):db.ref(p).push(v);}
+function fbOn(p,ev,cb) {DEMO?dOn(p,cb):db.ref(p).on(ev,s=>cb(s.val()));}
+function fbRemove(p)   {DEMO?dSet(p,null):db.ref(p).remove();}
 
 // state
-let _prevKeys=new Set(), _typTimer=null, unread=0;
-let locData = { me:null, gf:null };
+let _prevKeys=new Set(), _typTimer=null, unread=0, shareTimer=null, gpsTimer=null, sharing=false;
+let locData = { p1:null, p2:null };
 
-// ── Floating hearts ─────────────────────
+// ── Floating hearts ──
 (function spawnHearts(){
   const c=document.getElementById("hearts");
   const emojis=["💕","💗","💖","💓","🌸","✨","💫","🩷"];
-  for(let i=0;i<18;i++){
-    const h=document.createElement("div");
-    h.className="heart";
+  for(let i=0;i<18;i++){ const h=document.createElement("div"); h.className="heart";
     h.textContent=emojis[Math.floor(Math.random()*emojis.length)];
-    h.style.left=Math.random()*100+"%";
-    h.style.fontSize=(0.7+Math.random()*1.2)+"rem";
-    h.style.animationDuration=(8+Math.random()*14)+"s";
-    h.style.animationDelay=(Math.random()*12)+"s";
-    c.appendChild(h);
-  }
+    h.style.left=Math.random()*100+"%"; h.style.fontSize=(0.7+Math.random()*1.2)+"rem";
+    h.style.animationDuration=(8+Math.random()*14)+"s"; h.style.animationDelay=(Math.random()*12)+"s";
+    c.appendChild(h); }
 })();
 
 // ═══════════════════════════════════════
-//  BOOT
+//  LOGIN
 // ═══════════════════════════════════════
 window.addEventListener("DOMContentLoaded", () => {
-  if (!currentUser) {
-    document.getElementById("wrongScreen").style.display="flex";
-    return;
-  }
-
-  document.getElementById("mainCard").style.display="flex";
-  document.getElementById("chatNavTitle").textContent =
-    currentUser==="me" ? "💬 Chat with Her 👧" : "💬 Chat with Him 👦";
-
-  fbSet(`online/${currentUser}`, {online:true, ts:Date.now()});
-  getIPLocation();
-  setInterval(getIPLocation, 60000);
-
-  listenLocations();
-  listenChat();
-  listenTyping();
-  listenOnline();
-
-  if (!DEMO) {
-    db.ref(".info/connected").on("value", s=>{
-      document.getElementById("liveDot").style.opacity = s.val()?1:0.4;
-    });
-  }
+  const saved = localStorage.getItem(SESSION_KEY);
+  if (saved && ACCOUNTS[saved]) startApp(saved);
 });
 
+function doLogin(){
+  const u = document.getElementById("luser").value.trim().toLowerCase();
+  const p = document.getElementById("lpass").value;
+  const err = document.getElementById("loginErr");
+  const acc = ACCOUNTS[u];
+  if (!acc || acc.password !== p){ err.textContent = "Wrong username or password."; return; }
+  err.textContent = "";
+  localStorage.setItem(SESSION_KEY, u);
+  startApp(u);
+}
+
+function doLogout(){
+  if (sharing) toggleShare(false);
+  if (currentUser) fbSet(`online/${currentUser}`, {online:false, ts:Date.now()});
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+function startApp(username){
+  const acc = ACCOUNTS[username];
+  currentUser = acc.slot;
+  currentUsername = username;
+  myName = acc.name; myEmoji = acc.emoji;
+  const other = Object.values(ACCOUNTS).find(a => a.slot === OTHER[currentUser]);
+  partnerName = other ? other.name : "Partner";
+  partnerEmoji = other ? other.emoji : "👧";
+
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("mainCard").style.display = "flex";
+
+  // fill names/emojis (you on left, partner on right — symmetric)
+  document.getElementById("nameMe").textContent = myName + " (you)";
+  document.getElementById("avMe").childNodes[0].nodeValue = myEmoji;
+  document.getElementById("nameGf").textContent = partnerName;
+  document.getElementById("avGf").childNodes[0].nodeValue = partnerEmoji;
+  document.getElementById("chatNavTitle").textContent = "💬 " + partnerName;
+
+  fbSet(`online/${currentUser}`, {online:true, ts:Date.now()});
+  if (!DEMO){
+    db.ref(`online/${currentUser}`).onDisconnect().set({online:false, ts:Date.now()});
+    fbRemove(`typing/${currentUser}`);
+    db.ref(".info/connected").on("value", s=>{ document.getElementById("liveDot").style.opacity = s.val()?1:0.4; });
+  }
+
+  listenLocations(); listenChat(); listenTyping(); listenOnline();
+  setupMic();
+
+  // Resume sharing if this person turned it on before (persists across logins).
+  if (localStorage.getItem("us_share_"+currentUsername) === "1") toggleShare(true);
+}
+
 // ═══════════════════════════════════════
-//  📡 IP LOCATION — no permission popup
+//  📍 LOCATION SHARING (opt-in, you control it)
 // ═══════════════════════════════════════
+function toggleShare(on){
+  sharing = on;
+  document.getElementById("shareToggle").checked = on;
+  if (currentUsername) localStorage.setItem("us_share_"+currentUsername, on ? "1" : "0");
+  const hint = document.getElementById("shareHint");
+  const gpsLink = document.getElementById("gpsLink");
+  if (on){
+    hint.textContent = `On — ${partnerName} can see your location. Tap to stop anytime.`;
+    gpsLink.classList.add("show");
+    getIPLocation();
+    shareTimer = setInterval(getIPLocation, 60000);
+    showToast("📍 Sharing on");
+  } else {
+    hint.textContent = "Off. When on, your partner can see where you are. You can turn it off anytime.";
+    gpsLink.classList.remove("show");
+    clearInterval(shareTimer); clearInterval(gpsTimer);
+    fbRemove(`locations/${currentUser}`);
+    document.getElementById("locMe").textContent = "Location off";
+    document.getElementById("timeMe").textContent = "";
+    showToast("📍 Sharing off");
+  }
+}
+
 async function getIPLocation() {
+  if (!sharing) return;
   const apis = [
     "https://ipapi.co/json/",
     "https://ip-api.com/json/?fields=lat,lon,city,regionName,country",
@@ -438,75 +383,63 @@ async function getIPLocation() {
       const r = await fetch(api, {signal:AbortSignal.timeout(4000)});
       const d = await r.json();
       let lat,lng,city,region,country;
-      if (d.latitude&&d.longitude)  { lat=d.latitude;  lng=d.longitude;  city=d.city||d.cityName; region=d.region||d.regionName; country=d.country_name||d.country||d.countryName; }
-      else if (d.lat&&d.lon)        { lat=d.lat;        lng=d.lon;        city=d.city;              region=d.regionName;           country=d.country; }
+      if (d.latitude&&d.longitude){ lat=d.latitude; lng=d.longitude; city=d.city||d.cityName; region=d.region||d.regionName; country=d.country_name||d.country||d.countryName; }
+      else if (d.lat&&d.lon){ lat=d.lat; lng=d.lon; city=d.city; region=d.regionName; country=d.country; }
       if (!lat) continue;
       const address=[city,region].filter(Boolean).join(", ")||country||"Unknown";
       fbUpdate(`locations/${currentUser}`,{lat,lng,address,method:"ip",ts:Date.now()});
-      document.getElementById("locMethod").textContent="📡 IP location";
       return;
     } catch { continue; }
   }
-  document.getElementById("locMethod").textContent="⚠️ Could not locate";
 }
 
-// ═══════════════════════════════════════
-//  🎯 GPS UPGRADE
-// ═══════════════════════════════════════
 function upgradeToGPS() {
-  if (!navigator.geolocation) { showToast("GPS not available"); return; }
+  if (!sharing){ showToast("Turn on sharing first"); return; }
+  if (!navigator.geolocation){ showToast("GPS not available"); return; }
   showToast("🎯 Getting GPS…");
   navigator.geolocation.getCurrentPosition(async pos=>{
     const {latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
-    let address=`${lat.toFixed(4)},${lng.toFixed(4)}`;
+    let address=`${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     try {
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
         {headers:{"Accept-Language":"en"},signal:AbortSignal.timeout(5000)});
-      const d=await r.json();
-      const a=d.address||{};
-      address=[a.suburb||a.village||a.town,a.city||a.county,a.country].filter(Boolean).join(", ");
+      const d=await r.json(); const a=d.address||{};
+      address=[a.suburb||a.village||a.town,a.city||a.county,a.country].filter(Boolean).join(", ")||address;
     } catch {}
     fbUpdate(`locations/${currentUser}`,{lat,lng,address,method:"gps",ts:Date.now()});
-    document.getElementById("locMethod").textContent=`🎯 GPS ±${Math.round(acc)}m`;
-    const btn=document.getElementById("gpsBtn");
-    btn.textContent="🎯 GPS Active — precise location on";
-    btn.classList.add("gps-on"); btn.onclick=null;
-    showToast("🎯 Precise GPS active!");
-    setInterval(upgradeToGPS, 30000);
-  }, ()=>showToast("GPS denied — using IP"), {enableHighAccuracy:true,timeout:10000});
+    document.getElementById("gpsLink").textContent = `🎯 Precise GPS on (±${Math.round(acc)}m)`;
+    showToast("🎯 Precise GPS active");
+    clearInterval(gpsTimer); gpsTimer = setInterval(()=>{ if(sharing) upgradeToGPS(); }, 30000);
+  }, ()=>showToast("GPS denied — using approximate"), {enableHighAccuracy:true,timeout:10000});
 }
 
 // ═══════════════════════════════════════
-//  LISTEN LOCATIONS
+//  LISTEN LOCATIONS  (left = you, right = partner)
 // ═══════════════════════════════════════
 function listenLocations() {
-  ["me","gf"].forEach(who=>{
-    fbOn(`locations/${who}`,"value",data=>{
-      if (!data) return;
-      locData[who]=data;
-      const {address,ts}=data;
-      const locEl  = document.getElementById(who==="me"?"locMe":"locGf");
-      const timeEl = document.getElementById(who==="me"?"timeMe":"timeGf");
-      locEl.textContent  = address||"Located";
-      timeEl.textContent = ts?"Updated "+timeSince(ts)+" ago":"";
+  ["p1","p2"].forEach(slot=>{
+    fbOn(`locations/${slot}`,"value",data=>{
+      locData[slot]=data;
+      const mine = slot === currentUser;
+      const locEl  = document.getElementById(mine ? "locMe" : "locGf");
+      const timeEl = document.getElementById(mine ? "timeMe": "timeGf");
+      if (!data){ if(!mine){locEl.textContent="Location off"; timeEl.textContent="";} updateDistance(); return; }
+      locEl.textContent  = data.address || "Located";
+      timeEl.textContent = data.ts ? "Updated "+timeSince(data.ts)+" ago" : "";
       updateDistance();
     });
   });
 }
 
 function updateDistance() {
-  const a=locData.me, b=locData.gf;
-  if (!a||!b) {
-    document.getElementById("distText").textContent="Waiting for both locations…";
-    return;
-  }
+  const a=locData[currentUser], b=locData[OTHER[currentUser]];
+  const el=document.getElementById("distText");
+  if (!a||!b){ el.textContent = "Waiting for both locations…"; return; }
   const km = haversine(a.lat,a.lng,b.lat,b.lng);
-  const txt = km<1 ? `${Math.round(km*1000)} meters apart 🥰`
-            : km<50 ? `${km.toFixed(1)} km apart`
-            : `${Math.round(km)} km apart`;
-  document.getElementById("distText").textContent=txt;
+  el.textContent = km<1 ? `${Math.round(km*1000)} meters apart 🥰`
+                 : km<50 ? `${km.toFixed(1)} km apart`
+                 : `${Math.round(km)} km apart`;
 }
-
 function haversine(lat1,lon1,lat2,lon2){
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -514,74 +447,88 @@ function haversine(lat1,lon1,lat2,lon2){
 }
 
 // ═══════════════════════════════════════
-//  CHAT
+//  CHAT  (text + voice)
 // ═══════════════════════════════════════
-function openChat()  { document.getElementById("chatPanel").classList.add("open"); unread=0; const b=document.getElementById("chatBadge");b.style.display="none"; scrollChat(); document.getElementById("msgBox").focus(); }
-function closeChat() { document.getElementById("chatPanel").classList.remove("open"); }
+function openChat(){ document.getElementById("chatPanel").classList.add("open"); unread=0; document.getElementById("chatBadge").style.display="none"; scrollChat(); document.getElementById("msgBox").focus(); }
+function closeChat(){ document.getElementById("chatPanel").classList.remove("open"); }
 
 function sendMessage(){
   const box=document.getElementById("msgBox");
   const text=box.value.trim(); if(!text)return;
   box.value="";
-  fbPush("chat",{who:currentUser,text,ts:Date.now()});
+  fbPush("chat",{who:currentUser,type:"text",text,ts:Date.now()});
   fbSet(`typing/${currentUser}`,false);
 }
-function handleKey(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}
-function handleTyping(){
-  fbSet(`typing/${currentUser}`,true);
-  clearTimeout(_typTimer);
-  _typTimer=setTimeout(()=>fbSet(`typing/${currentUser}`,false),2000);
-}
+function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function handleTyping(){ fbSet(`typing/${currentUser}`,true); clearTimeout(_typTimer); _typTimer=setTimeout(()=>fbSet(`typing/${currentUser}`,false),2000); }
+
 function listenChat(){
-  if(DEMO){setInterval(()=>{const msgs=dg()?.chat||{};Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v])=>{if(!_prevKeys.has(k)){_prevKeys.add(k);appendMsg(k,v);}});},800);return;}
-  db.ref("chat").orderByChild("ts").on("child_added",s=>{if(!_prevKeys.has(s.key)){_prevKeys.add(s.key);appendMsg(s.key,s.val());}});
+  if(DEMO){ setInterval(()=>{ const msgs=dg()?.chat||{}; Object.entries(msgs).sort((a,b)=>a[1].ts-b[1].ts).forEach(([k,v])=>{ if(!_prevKeys.has(k)){_prevKeys.add(k);appendMsg(k,v);} }); },800); return; }
+  db.ref("chat").orderByChild("ts").on("child_added",s=>{ if(!_prevKeys.has(s.key)){_prevKeys.add(s.key);appendMsg(s.key,s.val());} });
 }
 function appendMsg(key,msg){
   const isMe=msg.who===currentUser;
   const div=document.createElement("div");
   div.className="msg "+(isMe?"msg-me":"msg-other");
   const t=new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  div.innerHTML=`${esc(msg.text)}<span class="msgTime">${t}</span>`;
+  if (msg.type==="voice" && msg.audio){
+    div.innerHTML=`<audio controls src="${msg.audio}"></audio><span class="msgTime">🎤 ${t}</span>`;
+  } else {
+    div.innerHTML=`${esc(msg.text||"")}<span class="msgTime">${t}</span>`;
+  }
   document.getElementById("chatMessages").appendChild(div);
   scrollChat();
   if(!isMe&&!document.getElementById("chatPanel").classList.contains("open")){
-    unread++; const b=document.getElementById("chatBadge");
-    b.style.display="flex"; b.textContent=unread>9?"9+":unread;
+    unread++; const b=document.getElementById("chatBadge"); b.style.display="flex"; b.textContent=unread>9?"9+":unread;
   }
 }
-function scrollChat(){const c=document.getElementById("chatMessages");c.scrollTop=c.scrollHeight;}
-function listenTyping(){
-  fbOn(`typing/${OTHER[currentUser]}`,"value",v=>{
-    document.getElementById("typingIndicator").textContent=v?"💬 typing…":"";
-  });
-}
+function scrollChat(){ const c=document.getElementById("chatMessages"); c.scrollTop=c.scrollHeight; }
+function listenTyping(){ fbOn(`typing/${OTHER[currentUser]}`,"value",v=>{ document.getElementById("typingIndicator").textContent=v?"💬 typing…":""; }); }
 function listenOnline(){
   fbOn(`online/${OTHER[currentUser]}`,"value",v=>{
-    const el=document.getElementById("onlineStatus");
-    const dot=document.getElementById(OTHER[currentUser]==="me"?"dotMe":"dotGf");
-    if(v?.online){el.textContent="● online";el.style.color="#1abc9c";dot.classList.add("show");}
-    else{el.textContent=`● ${v?.ts?timeSince(v.ts)+" ago":"offline"}`;el.style.color="#ffffff33";dot.classList.remove("show");}
+    const el=document.getElementById("onlineStatus"); const dot=document.getElementById("dotGf");
+    if(v?.online){ el.textContent="● online"; el.style.color="#1abc9c"; dot.classList.add("show"); }
+    else { el.textContent=`● ${v?.ts?timeSince(v.ts)+" ago":"offline"}`; el.style.color="#ffffff33"; dot.classList.remove("show"); }
   });
 }
 
-function timeSince(ts){
-  const s=Math.floor((Date.now()-ts)/1000);
-  if(s<60)return s+"s"; if(s<3600)return Math.floor(s/60)+"m"; return Math.floor(s/3600)+"h";
+// ── Voice messages (hold mic to record) ──
+let mediaRec=null, chunks=[], recording=false;
+function setupMic(){
+  const mic=document.getElementById("micBtn");
+  const start=async(e)=>{
+    e.preventDefault();
+    if (!navigator.mediaDevices?.getUserMedia){ showToast("Recording not supported"); return; }
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      mediaRec=new MediaRecorder(stream); chunks=[];
+      mediaRec.ondataavailable=ev=>chunks.push(ev.data);
+      mediaRec.onstop=()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        const blob=new Blob(chunks,{type:mediaRec.mimeType||"audio/webm"});
+        if (blob.size>700000){ showToast("Clip too long — keep it short"); return; }
+        const fr=new FileReader();
+        fr.onloadend=()=>fbPush("chat",{who:currentUser,type:"voice",audio:fr.result,ts:Date.now()});
+        fr.readAsDataURL(blob);
+      };
+      mediaRec.start(); recording=true; mic.classList.add("recording");
+      document.getElementById("recHint").textContent="🔴 Recording… release to send";
+    }catch{ showToast("Mic permission needed"); }
+  };
+  const stop=(e)=>{ e.preventDefault(); if(recording&&mediaRec){ mediaRec.stop(); recording=false; mic.classList.remove("recording"); document.getElementById("recHint").textContent=""; } };
+  mic.addEventListener("mousedown",start); mic.addEventListener("touchstart",start,{passive:false});
+  mic.addEventListener("mouseup",stop);   mic.addEventListener("touchend",stop);
+  mic.addEventListener("mouseleave",stop);
 }
-function showToast(msg){
-  const t=document.getElementById("toast");
-  t.textContent=msg;t.style.display="block";
-  clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display="none",2500);
-}
-function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");}
 
-// Update "x ago" text every 30s
+function timeSince(ts){ const s=Math.floor((Date.now()-ts)/1000); if(s<60)return s+"s"; if(s<3600)return Math.floor(s/60)+"m"; return Math.floor(s/3600)+"h"; }
+function showToast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(window._tt); window._tt=setTimeout(()=>t.style.display="none",2500); }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
+
 setInterval(()=>{
-  ["me","gf"].forEach(who=>{
-    const d=locData[who];
-    if(!d?.ts)return;
-    document.getElementById(who==="me"?"timeMe":"timeGf").textContent="Updated "+timeSince(d.ts)+" ago";
-  });
+  ["p1","p2"].forEach(slot=>{ const d=locData[slot]; if(!d?.ts)return;
+    const mine = slot===currentUser;
+    document.getElementById(mine?"timeMe":"timeGf").textContent="Updated "+timeSince(d.ts)+" ago"; });
 },30000);
 </script>
 </body>
