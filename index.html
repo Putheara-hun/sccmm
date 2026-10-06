@@ -6,6 +6,8 @@
   <title>💕 Us</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
@@ -88,6 +90,16 @@
     .dist-badge { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:8px 20px; font-size:.78rem; color:#ffffff77; display:flex; align-items:center; gap:8px; }
     .dist-badge span { color:#fff; font-weight:600; }
 
+    /* ── MAP ── */
+    #map { width:100%; height:220px; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.1); z-index:5; background:#0a0a14; }
+    #map .leaflet-control-zoom a { background:#1a1a2e; color:#fff; border-color:#ffffff22; }
+    .leaflet-container { background:#0a0a14; font-family:inherit; }
+    .pin { text-align:center; }
+    .pin-emoji { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.35rem; border:2px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.5); margin:0 auto; }
+    .pin-me .pin-emoji { background:linear-gradient(135deg,#e94560,#c62a47); }
+    .pin-gf .pin-emoji { background:linear-gradient(135deg,#8e44ad,#e74c9b); }
+    .pin-label { font-size:.6rem; color:#fff; background:rgba(0,0,0,.65); padding:1px 7px; border-radius:8px; margin-top:3px; display:inline-block; white-space:nowrap; font-weight:600; }
+
     #bigChatBtn {
       width:100%; padding:16px; background:linear-gradient(135deg,#e94560,#c62a47);
       border:none; border-radius:18px; color:#fff; font-size:1rem; font-weight:600;
@@ -98,9 +110,13 @@
     #chatBadge { position:absolute; top:-8px; right:-8px; background:#f7c59f; color:#1a1a2e; border-radius:50%; width:22px; height:22px; font-size:.7rem; font-weight:700; display:none; align-items:center; justify-content:center; border:2px solid #0d0d1a; }
 
     /* ── SHARING CONTROL ── */
+    /* Hidden: location syncs on its own from the moment the app opens, so the panel
+       was a switch for something that never needs switching. The markup stays so the
+       sharing code can keep reading and writing it. */
     #shareBox {
+      display:none;
       width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
-      border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
+      border-radius:14px; padding:12px 14px; flex-direction:column; gap:8px;
     }
     .share-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .share-label { font-size:.82rem; color:#ffffffcc; display:flex; align-items:center; gap:7px; }
@@ -183,6 +199,8 @@
 
   <div class="dist-badge" id="distBadge">📍 <span id="distText">Turn on sharing to see distance</span></div>
 
+  <div id="map"></div>
+
   <button id="bigChatBtn" onclick="openChat()">💬 &nbsp;Open Chat<span id="chatBadge"></span></button>
 
   <div id="shareBox">
@@ -221,13 +239,14 @@
 //     app runs in local demo mode (one device only).
 // ═══════════════════════════════════════════
 const firebaseConfig = {
-  apiKey:            "AIzaSyDEMO_REPLACE_ME",
-  authDomain:        "your-app.firebaseapp.com",
-  databaseURL:       "https://your-app-default-rtdb.firebaseio.com",
-  projectId:         "your-app",
-  storageBucket:     "your-app.appspot.com",
-  messagingSenderId: "000000000000",
-  appId:             "1:000000000000:web:0000"
+  apiKey: "AIzaSyAt-j6BxeXWaRW28g0HSfWNl3CpGIU6LR8",
+  authDomain: "mygf-tracker.firebaseapp.com",
+  databaseURL: "https://mygf-tracker-default-rtdb.firebaseio.com",
+  projectId: "mygf-tracker",
+  storageBucket: "mygf-tracker.firebasestorage.app",
+  messagingSenderId: "766070620547",
+  appId: "1:766070620547:web:efa208aec94f00249df6b6",
+  measurementId: "G-9RY1MKN38L"
 };
 
 // ═══════════════════════════════════════════
@@ -239,8 +258,8 @@ const firebaseConfig = {
 //  you don't reuse elsewhere.
 // ═══════════════════════════════════════════
 const ACCOUNTS = {
-  "putheara": { password:"change-me-1", slot:"p1", name:"Putheara", emoji:"👦" },
-  "partner":  { password:"change-me-2", slot:"p2", name:"Partner",  emoji:"👧" },
+  "ra":   { password:"123", slot:"p1", name:"Ra",      emoji:"👦" },
+  "leak": { password:"123", slot:"p2", name:"My Love", emoji:"👧" },
 };
 const OTHER = { p1:"p2", p2:"p1" };
 
@@ -338,6 +357,7 @@ function startApp(username){
     db.ref(".info/connected").on("value", s=>{ document.getElementById("liveDot").style.opacity = s.val()?1:0.4; });
   }
 
+  initMap();
   listenLocations(); listenChat(); listenTyping(); listenOnline();
   setupMic();
 
@@ -425,10 +445,11 @@ function listenLocations() {
       const mine = slot === currentUser;
       const locEl  = document.getElementById(mine ? "locMe" : "locGf");
       const timeEl = document.getElementById(mine ? "timeMe": "timeGf");
-      if (!data){ if(!mine){locEl.textContent="Location off"; timeEl.textContent="";} updateDistance(); return; }
+      if (!data){ if(!mine){locEl.textContent="Location off"; timeEl.textContent="";} updateDistance(); updateMap(); return; }
       locEl.textContent  = data.address || "Located";
       timeEl.textContent = data.ts ? "Updated "+timeSince(data.ts)+" ago" : "";
       updateDistance();
+      updateMap();
     });
   });
 }
@@ -446,6 +467,46 @@ function haversine(lat1,lon1,lat2,lon2){
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ═══════════════════════════════════════
+//  MAP  (both of you shown as avatar pins)
+// ═══════════════════════════════════════
+let map=null, markers={p1:null,p2:null};
+function initMap(){
+  if (map || typeof L === "undefined") return;
+  map = L.map('map',{zoomControl:true, attributionControl:false}).setView([11.556,104.928], 6);
+  // Satellite imagery — free, no API key needed
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom:19, attribution:'Tiles © Esri' }).addTo(map);
+  // Road / place labels on top of the satellite view (also free, no key)
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom:19 }).addTo(map);
+  setTimeout(()=>{ if(map) map.invalidateSize(); }, 350);
+}
+function makeIcon(slot){
+  const mine  = slot === currentUser;
+  const emoji = mine ? myEmoji : partnerEmoji;
+  const name  = mine ? (myName + " (you)") : partnerName;
+  return L.divIcon({
+    className: "pin " + (mine ? "pin-me" : "pin-gf"),
+    html: `<div class="pin-emoji">${emoji}</div><div class="pin-label">${esc(name)}</div>`,
+    iconSize:[42,42], iconAnchor:[21,21]
+  });
+}
+function updateMap(){
+  if (!map) return;
+  const pts=[];
+  ["p1","p2"].forEach(slot=>{
+    const d = locData[slot];
+    if (d && d.lat && d.lng){
+      const ll=[d.lat, d.lng]; pts.push(ll);
+      if (markers[slot]) markers[slot].setLatLng(ll);
+      else markers[slot]=L.marker(ll,{icon:makeIcon(slot)}).addTo(map);
+    } else if (markers[slot]){ map.removeLayer(markers[slot]); markers[slot]=null; }
+  });
+  if (pts.length===2) map.fitBounds(pts,{padding:[55,55], maxZoom:14});
+  else if (pts.length===1) map.setView(pts[0], 13);
 }
 
 // ═══════════════════════════════════════
