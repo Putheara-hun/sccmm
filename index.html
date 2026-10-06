@@ -135,13 +135,13 @@
     }
     #bigChatBtn:active { transform:scale(.97); }
     #chatBadge {
-      position:absolute; top:-10px; right:-10px;
-      background:#ff3366; color:#fff; border-radius:50%;
-      min-width:26px; height:26px; padding:0 6px;
+      position:absolute; top:-8px; right:-6px;
+      background:#ff2d55; color:#fff; border-radius:18px;
+      min-width:24px; height:24px; padding:0 6px;
       font-size:.78rem; font-weight:800; display:none;
-      align-items:center; justify-content:center;
-      border:3px solid #0d0d1a; box-shadow:0 0 15px rgba(255,51,102,0.8);
-      animation:popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      align-items:center; justify-content:center; line-height:1;
+      border:2.5px solid #0d0d1a; box-shadow:0 0 12px rgba(255,45,85,0.9);
+      z-index:20; pointer-events:none;
     }
 
     /* ── SHARING CONTROL ── */
@@ -177,10 +177,10 @@
     #chatMessages::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:3px; }
     .msg { max-width:80%; padding:10px 14px; border-radius:18px; font-size:.85rem; line-height:1.5; word-break:break-word; position:relative; }
     .msgSender { font-size:.68rem; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px; opacity:0.9; }
-    .msgTime { font-size:.62rem; color:#ffffff55; margin-top:3px; display:flex; align-items:center; justify-content:flex-end; gap:4px; }
-    .msgTick { font-size:.72rem; font-weight:bold; }
-    .msgTick.sent { color:#ffffff66; }
-    .msgTick.seen { color:#2ed573; }
+    .msgTime { font-size:.62rem; color:#ffffff66; margin-top:4px; display:flex; align-items:center; justify-content:flex-end; gap:5px; }
+    .msgTick { font-size:.7rem; font-weight:700; display:inline-flex; align-items:center; gap:2px; }
+    .msgTick.sent { color:#a4b0be; }
+    .msgTick.seen { color:#2ed573; font-weight:800; }
     .msg-me { background:linear-gradient(135deg,#e94560,#c62a47); align-self:flex-end; border-bottom-right-radius:4px; }
     .msg-other { background:rgba(255,255,255,.1); align-self:flex-start; border-bottom-left-radius:4px; color:#ffffffdd; border:1px solid rgba(255,255,255,.08); }
     .msg audio { max-width:200px; height:36px; }
@@ -773,12 +773,10 @@ function updateAllMessageTicks() {
     if (tickEl && msgTs > 0) {
       if (msgTs <= partnerLastSeenTs) {
         tickEl.className = "msgTick seen";
-        tickEl.innerHTML = "✓✓";
-        tickEl.title = "Seen";
+        tickEl.innerHTML = "Seen ✓✓";
       } else {
         tickEl.className = "msgTick sent";
-        tickEl.innerHTML = "✓";
-        tickEl.title = "Delivered";
+        tickEl.innerHTML = "Sent ✓";
       }
     }
   });
@@ -803,11 +801,11 @@ function appendMsg(key, msg, initialLastSeen){
     bodyHtml = `<div>${esc(msg.text || "")}</div>`;
   }
 
-  // Double checkmarks for sent messages
+  // Status indicators for sent messages
   let tickHtml = "";
   if (isMe) {
     const isSeen = msg.ts <= partnerLastSeenTs;
-    tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}" title="${isSeen ? 'Seen' : 'Delivered'}">${isSeen ? '✓✓' : '✓'}</span>`;
+    tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}">${isSeen ? 'Seen ✓✓' : 'Sent ✓'}</span>`;
   }
   
   div.innerHTML = `
