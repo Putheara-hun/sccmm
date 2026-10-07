@@ -38,6 +38,7 @@ jobs:
       - name: Apply Compiler Compatibility Patches
         run: |
           node -e "const f='node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h'; if (require('fs').existsSync(f)) { let c=require('fs').readFileSync(f,'utf8'); c=c.replace(/SWIFT_RETURNS_RETAINED RuntimeScheduler/g, 'RuntimeScheduler'); require('fs').writeFileSync(f,c); console.log('Patched RuntimeScheduler.h'); }"
+          node -e "const f='node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift'; if (require('fs').existsSync(f)) { let c=require('fs').readFileSync(f,'utf8'); c=c.replace('return withGuaranteedContext(context) { (context: HostFunctionContext, runtime) in\n      return JavaScriptActor.assumeIsolated {', 'return withGuaranteedContext(context) { (context: HostFunctionContext, runtime) in\n      nonisolated(unsafe) let thisPtr = thisPtr\n      nonisolated(unsafe) let argumentsPtr = argumentsPtr\n      nonisolated(unsafe) let resultPtr = resultPtr\n      return JavaScriptActor.assumeIsolated {'); c=c.replace('return withGuaranteedContext(context) { (context: UnownedThisHostFunctionContext, runtime) in\n      return JavaScriptActor.assumeIsolated {', 'return withGuaranteedContext(context) { (context: UnownedThisHostFunctionContext, runtime) in\n      nonisolated(unsafe) let thisPtr = thisPtr\n      nonisolated(unsafe) let argumentsPtr = argumentsPtr\n      nonisolated(unsafe) let resultPtr = resultPtr\n      return JavaScriptActor.assumeIsolated {'); c=c.replace('return withGuaranteedContext(context) { (context: HostObjectContext, runtime) in\n        return JavaScriptActor.assumeIsolated {', 'return withGuaranteedContext(context) { (context: HostObjectContext, runtime) in\n        nonisolated(unsafe) let resultPtr = resultPtr\n        return JavaScriptActor.assumeIsolated {'); require('fs').writeFileSync(f,c); console.log('Patched JavaScriptRuntime.swift'); }"
 
       - name: Install CocoaPods
         run: |
@@ -57,6 +58,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            SWIFT_STRICT_CONCURRENCY=minimal \
+            OTHER_SWIFT_FLAGS="-strict-concurrency=minimal" \
             -skipPackagePluginValidation \
             build
 
