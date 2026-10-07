@@ -243,14 +243,21 @@
 
   <div class="avatars">
     <div class="avatar-wrap">
-      <div class="avatar avatar-me" id="avMe" onclick="document.getElementById('photoInput').click()" title="Tap to change your photo">👦<div class="online-dot show" id="dotMe"></div><div class="cam-badge">📷</div></div>
+      <div class="avatar avatar-me" id="avMe" onclick="document.getElementById('photoInput').click()" title="Tap to change your photo">
+        <span class="av-emoji" id="emojiMe">👦</span>
+        <div class="online-dot show" id="dotMe"></div>
+        <div class="cam-badge">📷</div>
+      </div>
       <div class="avatar-name" id="nameMe">You</div>
       <div class="avatar-loc" id="locMe">Location off</div>
       <div class="avatar-time" id="timeMe"></div>
     </div>
     <div class="heart-connector">💗</div>
     <div class="avatar-wrap">
-      <div class="avatar avatar-gf" id="avGf">👧<div class="online-dot" id="dotGf"></div></div>
+      <div class="avatar avatar-gf" id="avGf">
+        <span class="av-emoji" id="emojiGf">👧</span>
+        <div class="online-dot" id="dotGf"></div>
+      </div>
       <div class="avatar-name" id="nameGf">Partner</div>
       <div class="avatar-loc" id="locGf">…</div>
       <div class="avatar-time" id="timeGf"></div>
@@ -338,6 +345,7 @@ if (!DEMO) {
     db.goOnline();
     db.ref("chat").keepSynced(true);
     db.ref("locations").keepSynced(true);
+    db.ref("photos").keepSynced(true);
   } catch(e) {}
 }
 
@@ -430,9 +438,9 @@ function startApp(username){
 
   // fill names/emojis (you on left, partner on right — symmetric)
   document.getElementById("nameMe").textContent = myName + " (you)";
-  document.getElementById("avMe").childNodes[0].nodeValue = myEmoji;
+  const eMe = document.getElementById("emojiMe"); if(eMe) eMe.textContent = myEmoji;
   document.getElementById("nameGf").textContent = partnerName;
-  document.getElementById("avGf").childNodes[0].nodeValue = partnerEmoji;
+  const eGf = document.getElementById("emojiGf"); if(eGf) eGf.textContent = partnerEmoji;
   document.getElementById("chatNavTitle").textContent = "💬 " + partnerName;
 
   fbSet(`online/${currentUser}`, {online:true, ts:Date.now()});
@@ -678,6 +686,9 @@ function onPhotoPick(e){
   if(!file.type.startsWith("image/")){ showToast("Please pick an image"); return; }
   showToast("📷 Updating photo…");
   compressImage(file, dataUrl=>{
+    photoData[currentUser] = dataUrl;
+    try { localStorage.setItem("photo_" + currentUser, dataUrl); } catch(e){}
+    applyPhoto(currentUser);
     fbSet(`photos/${currentUser}`, dataUrl);
     showToast("📷 Photo updated");
   });
@@ -685,22 +696,35 @@ function onPhotoPick(e){
 function applyPhoto(slot){
   const mine = slot===currentUser;
   const el=document.getElementById(mine ? "avMe" : "avGf");
+  const emEl=document.getElementById(mine ? "emojiMe" : "emojiGf");
   if(!el) return;
-  const emoji = mine ? myEmoji : partnerEmoji;
-  if(photoData[slot]){
+  const photo = photoData[slot] || localStorage.getItem("photo_" + slot);
+  if(photo){
     el.classList.add("has-photo");
-    el.style.backgroundImage=`url('${photoData[slot]}')`;
-    el.childNodes[0].nodeValue="";
+    el.style.backgroundImage=`url('${photo}')`;
+    if(emEl) emEl.style.display="none";
   } else {
     el.classList.remove("has-photo");
     el.style.backgroundImage="";
-    el.childNodes[0].nodeValue=emoji;
+    if(emEl) emEl.style.display="";
   }
 }
 function listenPhotos(){
   ["p1","p2"].forEach(slot=>{
+    // Load local cached photo immediately
+    const cached = localStorage.getItem("photo_" + slot);
+    if(cached) {
+      photoData[slot] = cached;
+      applyPhoto(slot);
+    }
     fbOn(`photos/${slot}`,"value",data=>{
-      photoData[slot]=data||null;
+      if (data) {
+        photoData[slot] = data;
+        try { localStorage.setItem("photo_" + slot, data); } catch(e){}
+      } else {
+        photoData[slot] = null;
+        try { localStorage.removeItem("photo_" + slot); } catch(e){}
+      }
       applyPhoto(slot);
       if(markers[slot]) markers[slot].setIcon(makeIcon(slot));
     });
