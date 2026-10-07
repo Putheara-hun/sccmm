@@ -25,16 +25,16 @@ jobs:
       - name: Generate Native iOS Project
         run: npx expo prebuild --platform ios --clean
 
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
       - name: Build Archive (Physical Device Unsigned IPA for Sideloadly)
         run: |
           cd ios
-          ls -la
-          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME="${WORKSPACE%.xcworkspace}"
-          echo "Using workspace: $WORKSPACE"
-          echo "Using scheme: $SCHEME"
-          xcodebuild -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
+          xcodebuild -workspace JustUs.xcworkspace \
+            -scheme JustUs \
             -configuration Release \
             -sdk iphoneos \
             -destination "generic/platform=iOS" \
