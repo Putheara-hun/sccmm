@@ -137,7 +137,9 @@
     /* ── MAP ── */
     #map { width:100%; height:220px; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.1); z-index:5; background:#0a0a14; }
     #map .leaflet-control-zoom a { background:#1a1a2e; color:#fff; border-color:#ffffff22; }
-    .leaflet-container { background:#0a0a14; font-family:inherit; }
+    .leaflet-marker-icon {
+      transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    }
     .pin { text-align:center; }
     .pin-emoji { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.35rem; border:2px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.5); margin:0 auto; }
     .pin-me .pin-emoji { background:linear-gradient(135deg,#e94560,#c62a47); }
@@ -484,8 +486,25 @@ function toggleShare(on){
     hint.textContent = `On — ${partnerName} can see your location. Tap to stop anytime.`;
     gpsLink.classList.add("show");
     resolveLocation();
-    shareTimer = setInterval(resolveLocation, 25000);
-    showToast("📍 Sharing on");
+    // High-frequency backup interval: re-checks GPS every 1000ms so location never stalls
+    shareTimer = setInterval(() => {
+      if (sharing && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            fbUpdate(`locations/${currentUser}`, {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              acc: Math.round(pos.coords.accuracy),
+              method: "gps",
+              ts: Date.now()
+            });
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      }
+    }, 1000);
+    showToast("📍 Live GPS tracking on");
   } else {
     hint.textContent = "Off. When on, your partner can see where you are. You can turn it off anytime.";
     gpsLink.classList.remove("show");
@@ -520,6 +539,8 @@ async function getIPLocation() {
 }
 
 let watchId = null;
+let lastGeocodeTs = 0;
+let lastKnownAddress = "";
 
 function resolveLocation() {
   if (!sharing) return;
@@ -530,44 +551,50 @@ function resolveLocation() {
     return;
   }
 
-  // Use watchPosition for high-precision GPS locks (pinpoints exact house/street)
+  // Real-time GPS stream: updates and syncs every millisecond/second as GPS fixes arrive
   if (watchId == null) {
     watchId = navigator.geolocation.watchPosition(
-      async (pos) => {
+      (pos) => {
         const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
-        let address = "";
-        try {
-          const r = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-            { headers: { "Accept-Language": "en" }, signal: AbortSignal.timeout(4000) }
-          );
-          const d = await r.json();
-          const a = d.address || {};
-          address = [a.road, a.suburb || a.village || a.town || a.quarter, a.city || a.county, a.country].filter(Boolean).join(", ");
-        } catch {}
+        const now = Date.now();
 
-        if (!address) address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        // Broadcast raw GPS coordinates instantly to Firebase (sub-second sync)
         fbUpdate(`locations/${currentUser}`, {
           lat,
           lng,
           acc: Math.round(acc),
-          address: `${address} (±${Math.round(acc)}m)`,
+          address: lastKnownAddress ? `${lastKnownAddress} (±${Math.round(acc)}m)` : `±${Math.round(acc)}m`,
           method: "gps",
-          ts: Date.now()
+          ts: now
         });
+
+        // Throttle reverse geocoding to once every 20 seconds so it doesn't slow down the live GPS stream
+        if (now - lastGeocodeTs > 20000) {
+          lastGeocodeTs = now;
+          fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { "Accept-Language": "en" }, signal: AbortSignal.timeout(3000) }
+          ).then(r => r.json()).then(d => {
+            const a = d.address || {};
+            const addr = [a.road, a.suburb || a.village || a.town || a.quarter, a.city || a.county, a.country].filter(Boolean).join(", ");
+            if (addr) {
+              lastKnownAddress = addr;
+              fbUpdate(`locations/${currentUser}`, { address: `${addr} (±${Math.round(acc)}m)` });
+            }
+          }).catch(() => {});
+        }
       },
       (err) => {
         if (err.code === 1) {
           showToast("⚠️ Please tap 'Allow' for Location in your browser!");
         }
-        // Only fallback to IP if we don't have any location yet
         if (!locData[currentUser]) {
           getIPLocation();
         }
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 10000,
         maximumAge: 0
       }
     );
