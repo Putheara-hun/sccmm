@@ -1,23 +1,21 @@
-// Real-time Service Worker (Never caches HTML, always gets latest deployed version)
-const VERSION = "realtime-v4-" + Date.now();
+// Real-time Service Worker
+const VERSION = "v5";
 
 self.addEventListener("install", (e) => {
-  // Activate immediately without waiting for existing tabs to close
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    // Delete ALL old caches so stale versions can never be served
     caches.keys().then((keys) => {
       return Promise.all(keys.map((k) => caches.delete(k)));
-    }).then(() => self.clients.claim())
+    })
   );
 });
 
 self.addEventListener("fetch", (e) => {
-  // 1. Never intercept Firebase real-time database or external APIs
   const url = e.request.url;
+  // Let Firebase realtime database and external APIs pass straight to network
   if (
     url.includes("firebaseio.com") ||
     url.includes("googleapis.com") ||
@@ -29,27 +27,16 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 2. Navigation / HTML requests: ALWAYS fetch directly from network with no-store
-  // This guarantees that any new deploy is immediately visible without clearing browser cache
+  // Always fetch HTML navigation directly from network without caching
   if (e.request.mode === "navigate" || url.endsWith(".html") || url.endsWith("/")) {
     e.respondWith(
-      fetch(e.request, { cache: "no-store" }).catch(() => {
-        // If completely offline and network fails, attempt fallback
-        return caches.match(e.request);
-      })
+      fetch(e.request, { cache: "no-store" }).catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // 3. Static CDN libraries (Leaflet, Firebase JS) can use network with cache fallback
+  // CDN libraries (Leaflet)
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
   );
-});
-
-// Inform clients if a new service worker version took over
-self.addEventListener("message", (e) => {
-  if (e.data === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
 });

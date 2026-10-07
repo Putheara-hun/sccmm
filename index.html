@@ -16,36 +16,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Automatically wipe old browser CacheStorage so new deployments reflect instantly
-    if ("caches" in window) {
-      caches.keys().then(keys => {
-        keys.forEach(k => caches.delete(k));
-      });
-    }
-
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js?t=" + Date.now(), { updateViaCache: "none" }).then(reg => {
-          reg.update().catch(() => {});
-          setInterval(() => { reg.update().catch(() => {}); }, 15000);
-          document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible") reg.update().catch(() => {});
-          });
-          reg.addEventListener("updatefound", () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener("statechange", () => {
-                if (newWorker.state === "activated") {
-                  window.location.reload();
-                }
-              });
-            }
-          });
-        }).catch(() => {});
-      });
-
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        window.location.reload();
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
       });
     }
   </script>
@@ -412,32 +385,17 @@ const OTHER = { p1:"p2", p2:"p1" };
 
 // ── session ──
 const SESSION_KEY = "us_session";
-const APP_VERSION = "2026.10.07.1102";
 
-function checkForUpdates() {
-  fetch("./version.json?t=" + Date.now(), { cache: "no-store" })
-    .then(r => r.json())
-    .then(d => {
-      if (d && d.version && d.version !== APP_VERSION) {
-        if (typeof showToast === "function") showToast("🚀 New version detected! Updating…");
-        setTimeout(() => {
-          if ("caches" in window) {
-            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).finally(() => {
-              window.location.reload(true);
-            });
-          } else {
-            window.location.reload(true);
-          }
-        }, 500);
+// When user taps "Allow" on the browser location popup, auto-start tracking immediately
+if (navigator.permissions && navigator.permissions.query) {
+  navigator.permissions.query({ name: "geolocation" }).then(res => {
+    res.onchange = () => {
+      if (res.state === "granted" && currentUser) {
+        startAutoTracking();
       }
-    })
-    .catch(() => {});
+    };
+  }).catch(() => {});
 }
-setInterval(checkForUpdates, 12000);
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") checkForUpdates();
-});
-setTimeout(checkForUpdates, 2000);
 
 let currentUser = null;   
 let currentUsername = null;
