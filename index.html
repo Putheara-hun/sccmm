@@ -104,7 +104,9 @@
     .avatars { display:flex; align-items:center; justify-content:center; width:100%; }
     .avatar-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; }
     .avatar { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:2.2rem; border:3px solid transparent; position:relative; }
-    .avatar-me { background:linear-gradient(135deg,#e94560,#c62a47); box-shadow:0 0 0 4px #e9456022, 0 8px 30px #e9456055; }
+    .avatar-me { background:linear-gradient(135deg,#e94560,#c62a47); box-shadow:0 0 0 4px #e9456022, 0 8px 30px #e9456055; cursor:pointer; }
+    .avatar.has-photo { background-size:cover; background-position:center; font-size:0; }
+    .cam-badge { position:absolute; bottom:-2px; left:-2px; width:22px; height:22px; border-radius:50%; background:#1a1a2e; border:2px solid #0d0d1a; display:flex; align-items:center; justify-content:center; font-size:.7rem; }
     .avatar-gf { background:linear-gradient(135deg,#8e44ad,#e74c9b); box-shadow:0 0 0 4px #e74c9b22, 0 8px 30px #e74c9b55; }
     .avatar-name { font-size:.75rem; color:#ffffff88; font-weight:400; letter-spacing:.5px; }
     .avatar-loc { font-size:.65rem; color:#ffffff44; max-width:120px; text-align:center; line-height:1.4; }
@@ -116,6 +118,21 @@
 
     .dist-badge { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:8px 20px; font-size:.78rem; color:#ffffff77; display:flex; align-items:center; gap:8px; }
     .dist-badge span { color:#fff; font-weight:600; }
+
+    /* ── LOVE STATS ── */
+    #loveStats {
+      width:100%; background:linear-gradient(135deg,#e9456022,#8e44ad22);
+      border:1px solid rgba(255,255,255,.1); border-radius:18px;
+      padding:16px 14px; text-align:center; display:flex; flex-direction:column; gap:4px;
+    }
+    .tog-days { font-size:2.6rem; font-weight:700; line-height:1;
+      background:linear-gradient(135deg,#ff6b81,#e74c9b); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .tog-sub { font-size:.82rem; color:#ffffffcc; font-weight:600; }
+    .tog-detail { font-size:.66rem; color:#ffffff55; margin-top:2px; }
+    .bday-row { display:flex; gap:8px; margin-top:10px; }
+    .bday { flex:1; background:rgba(255,255,255,.05); border-radius:12px; padding:7px 6px;
+      font-size:.68rem; color:#ffffffcc; line-height:1.4; }
+    .bday small { color:#ffffff55; }
 
     /* ── MAP ── */
     #map { width:100%; height:220px; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.1); z-index:5; background:#0a0a14; }
@@ -226,7 +243,7 @@
 
   <div class="avatars">
     <div class="avatar-wrap">
-      <div class="avatar avatar-me" id="avMe">👦<div class="online-dot show" id="dotMe"></div></div>
+      <div class="avatar avatar-me" id="avMe" onclick="document.getElementById('photoInput').click()" title="Tap to change your photo">👦<div class="online-dot show" id="dotMe"></div><div class="cam-badge">📷</div></div>
       <div class="avatar-name" id="nameMe">You</div>
       <div class="avatar-loc" id="locMe">Location off</div>
       <div class="avatar-time" id="timeMe"></div>
@@ -237,6 +254,18 @@
       <div class="avatar-name" id="nameGf">Partner</div>
       <div class="avatar-loc" id="locGf">…</div>
       <div class="avatar-time" id="timeGf"></div>
+    </div>
+  </div>
+
+  <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoPick(event)" />
+
+  <div id="loveStats">
+    <div class="tog-days" id="togDays">—</div>
+    <div class="tog-sub">days together 💕</div>
+    <div class="tog-detail" id="togDetail"></div>
+    <div class="bday-row">
+      <div class="bday" id="bdayP1">🎂 …</div>
+      <div class="bday" id="bdayP2">🎂 …</div>
     </div>
   </div>
 
@@ -276,11 +305,7 @@
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════
-//  🔥 FIREBASE CONFIG — paste yours here so the
-//     two phones actually sync. Until you do, the
-//     app runs in local demo mode (one device only).
-// ═══════════════════════════════════════════
+
 const firebaseConfig = {
   apiKey: "AIzaSyAt-j6BxeXWaRW28g0HSfWNl3CpGIU6LR8",
   authDomain: "mygf-tracker.firebaseapp.com",
@@ -292,14 +317,7 @@ const firebaseConfig = {
   measurementId: "G-9RY1MKN38L"
 };
 
-// ═══════════════════════════════════════════
-//  👥 THE TWO ACCOUNTS  — change these!
-//  Each of you logs in with your OWN username + password.
-//  "slot" must be p1 for one person and p2 for the other.
-//  NOTE: this is a light gate for a 2-person app, not bank
-//  security — the check runs in the browser. Use passwords
-//  you don't reuse elsewhere.
-// ═══════════════════════════════════════════
+
 const ACCOUNTS = {
   "ra":   { password:"123", slot:"p1", name:"Ra",   emoji:"👦" },
   "leak": { password:"123", slot:"p2", name:"Leak", emoji:"👧" },
@@ -308,20 +326,16 @@ const OTHER = { p1:"p2", p2:"p1" };
 
 // ── session ──
 const SESSION_KEY = "us_session";
-let currentUser = null;   // slot: p1 / p2
+let currentUser = null;   
 let currentUsername = null;
 let myName = "", myEmoji = "", partnerName = "Partner", partnerEmoji = "👧";
-
-// ── Firebase / Demo ──
 let db;
 const DEMO = firebaseConfig.apiKey.includes("DEMO_REPLACE_ME");
 if (!DEMO) {
   firebase.initializeApp(firebaseConfig);
   db = firebase.database();
-  // Enable offline disk persistence: messages queue locally when offline and sync when connected!
   try {
     db.goOnline();
-    // Enable offline caching on the chat and location channels
     db.ref("chat").keepSynced(true);
     db.ref("locations").keepSynced(true);
   } catch(e) {}
@@ -346,6 +360,7 @@ function fbRemove(p)   {DEMO?dSet(p,null):db.ref(p).remove();}
 // state
 let _prevKeys=new Set(), _typTimer=null, unread=0, shareTimer=null, gpsTimer=null, sharing=false;
 let locData = { p1:null, p2:null };
+let photoData = { p1:null, p2:null };
 
 // ── Floating hearts ──
 (function spawnHearts(){
@@ -434,7 +449,10 @@ function startApp(username){
 
   initMap();
   listenLocations(); listenChat(); listenTyping(); listenOnline(); listenSeenReceipts();
+  listenPhotos();
   setupMic();
+  updateLoveStats();
+  setInterval(updateLoveStats, 60 * 60 * 1000); // refresh hourly (rolls over at midnight)
 
   // If user opens the app, update seen timestamp
   markMessagesAsSeen();
@@ -621,10 +639,71 @@ function makeIcon(slot){
   const mine  = slot === currentUser;
   const emoji = mine ? myEmoji : partnerEmoji;
   const name  = mine ? (myName + " (you)") : partnerName;
+  const photo = photoData[slot];
+  const inner = photo
+    ? `<div class="pin-emoji" style="background-image:url('${photo}');background-size:cover;background-position:center;font-size:0;">·</div>`
+    : `<div class="pin-emoji">${emoji}</div>`;
   return L.divIcon({
     className: "pin " + (mine ? "pin-me" : "pin-gf"),
-    html: `<div class="pin-emoji">${emoji}</div><div class="pin-label">${esc(name)}</div>`,
+    html: `${inner}<div class="pin-label">${esc(name)}</div>`,
     iconSize:[42,42], iconAnchor:[21,21]
+  });
+}
+
+// ═══════════════════════════════════════
+//  PROFILE PHOTOS  (tap your avatar to change)
+// ═══════════════════════════════════════
+function compressImage(file, cb){
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const size=256, canvas=document.createElement("canvas");
+      canvas.width=size; canvas.height=size;
+      const ctx=canvas.getContext("2d");
+      const scale=Math.max(size/img.width, size/img.height);
+      const w=img.width*scale, h=img.height*scale;
+      ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+      cb(canvas.toDataURL("image/jpeg",0.82));
+    };
+    img.onerror=()=>showToast("Couldn't read that image");
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+function onPhotoPick(e){
+  const file=e.target.files && e.target.files[0];
+  e.target.value="";
+  if(!file) return;
+  if(!file.type.startsWith("image/")){ showToast("Please pick an image"); return; }
+  showToast("📷 Updating photo…");
+  compressImage(file, dataUrl=>{
+    fbSet(`photos/${currentUser}`, dataUrl);
+    showToast("📷 Photo updated");
+  });
+}
+function applyPhoto(slot){
+  const mine = slot===currentUser;
+  const el=document.getElementById(mine ? "avMe" : "avGf");
+  if(!el) return;
+  const emoji = mine ? myEmoji : partnerEmoji;
+  if(photoData[slot]){
+    el.classList.add("has-photo");
+    el.style.backgroundImage=`url('${photoData[slot]}')`;
+    el.childNodes[0].nodeValue="";
+  } else {
+    el.classList.remove("has-photo");
+    el.style.backgroundImage="";
+    el.childNodes[0].nodeValue=emoji;
+  }
+}
+function listenPhotos(){
+  ["p1","p2"].forEach(slot=>{
+    fbOn(`photos/${slot}`,"value",data=>{
+      photoData[slot]=data||null;
+      applyPhoto(slot);
+      if(markers[slot]) markers[slot].setIcon(makeIcon(slot));
+    });
   });
 }
 function updateMap(){
@@ -666,6 +745,51 @@ function updateMap(){
   } else if (pts.length === 1) {
     map.setView(pts[0], 16);
   }
+}
+
+// ═══════════════════════════════════════
+//  LOVE STATS  (days together + birthday countdowns)
+//  Dates are YYYY-MM-DD. Edit here to change them.
+// ═══════════════════════════════════════
+const DATES = {
+  together:   "2026-07-10",  // the day you got together
+  p1birthday: "2002-11-13",  // Ra
+  p2birthday: "2004-07-10",  // My Love
+};
+function daysBetween(a,b){ return Math.round((b - a) / 86400000); }
+function ymdBreakdown(from, to){
+  let y=to.getFullYear()-from.getFullYear();
+  let m=to.getMonth()-from.getMonth();
+  let d=to.getDate()-from.getDate();
+  if (d<0){ m--; d += new Date(to.getFullYear(), to.getMonth(), 0).getDate(); }
+  if (m<0){ y--; m += 12; }
+  return {y,m,d};
+}
+function nextBirthday(bstr){
+  const b=new Date(bstr+"T00:00:00");
+  const now=new Date(); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  let next=new Date(today.getFullYear(), b.getMonth(), b.getDate());
+  if (next < today) next=new Date(today.getFullYear()+1, b.getMonth(), b.getDate());
+  return { days: daysBetween(today,next), turning: next.getFullYear()-b.getFullYear() };
+}
+function updateLoveStats(){
+  const el = document.getElementById("togDays");
+  if (!el) return;
+  const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const start=new Date(DATES.together+"T00:00:00");
+  const total=Math.max(0, daysBetween(start,today));
+  el.textContent = total.toLocaleString();
+  const b=ymdBreakdown(start,today);
+  document.getElementById("togDetail").textContent =
+    `${b.y>0?b.y+"y ":""}${b.m}m ${b.d}d · since ${start.toLocaleDateString()}`;
+  const nameOf = slot => (Object.values(ACCOUNTS).find(a=>a.slot===slot)||{}).name || slot;
+  [["p1","bdayP1","p1birthday"],["p2","bdayP2","p2birthday"]].forEach(([slot,elId,key])=>{
+    const nb=nextBirthday(DATES[key]);
+    const when = nb.days===0 ? "today! 🥳" : nb.days+" day"+(nb.days===1?"":"s");
+    document.getElementById(elId).innerHTML =
+      `🎂 ${esc(nameOf(slot))}<br>${when} <small>(turns ${nb.turning})</small>`;
+  });
 }
 
 // ═══════════════════════════════════════
