@@ -1,72 +1,55 @@
-const CACHE_NAME = "us-cache-v3";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-  "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
-  "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"
-];
+// Real-time Service Worker (Never caches HTML, always gets latest deployed version)
+const VERSION = "realtime-v4-" + Date.now();
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS).catch(() => {});
-    })
-  );
+  // Activate immediately without waiting for existing tabs to close
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
+    // Delete ALL old caches so stale versions can never be served
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((k) => {
-          if (k !== CACHE_NAME) return caches.delete(k);
-        })
-      );
-    })
+      return Promise.all(keys.map((k) => caches.delete(k)));
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (e) => {
-  // Let Firebase realtime websocket/database and external APIs pass through to network
+  // 1. Never intercept Firebase real-time database or external APIs
+  const url = e.request.url;
   if (
-    e.request.url.includes("firebaseio.com") ||
-    e.request.url.includes("googleapis.com") ||
-    e.request.url.includes("ipapi.co") ||
-    e.request.url.includes("ip-api.com") ||
-    e.request.url.includes("freeipapi.com") ||
-    e.request.url.includes("nominatim.openstreetmap.org")
+    url.includes("firebaseio.com") ||
+    url.includes("googleapis.com") ||
+    url.includes("ipapi.co") ||
+    url.includes("ip-api.com") ||
+    url.includes("freeipapi.com") ||
+    url.includes("nominatim.openstreetmap.org")
   ) {
     return;
   }
 
-  // Network-first for HTML pages so user gets immediate updates on refresh / reopening
-  if (e.request.mode === "navigate" || e.request.url.endsWith(".html") || e.request.url.endsWith("/")) {
+  // 2. Navigation / HTML requests: ALWAYS fetch directly from network with no-store
+  // This guarantees that any new deploy is immediately visible without clearing browser cache
+  if (e.request.mode === "navigate" || url.endsWith(".html") || url.endsWith("/")) {
     e.respondWith(
-      fetch(e.request)
-        .then((networkRes) => {
-          const resClone = networkRes.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
-          return networkRes;
-        })
-        .catch(() => caches.match(e.request).then((res) => res || caches.match("./index.html")))
+      fetch(e.request, { cache: "no-store" }).catch(() => {
+        // If completely offline and network fails, attempt fallback
+        return caches.match(e.request);
+      })
     );
     return;
   }
 
-  // Cache-first for other static assets
+  // 3. Static CDN libraries (Leaflet, Firebase JS) can use network with cache fallback
   e.respondWith(
-    caches.match(e.request).then((res) => {
-      return res || fetch(e.request).then((networkRes) => {
-        return caches.open(CACHE_NAME).then((cache) => {
-          cache.put(e.request, networkRes.clone());
-          return networkRes;
-        });
-      });
-    })
+    fetch(e.request).catch(() => caches.match(e.request))
   );
+});
+
+// Inform clients if a new service worker version took over
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
