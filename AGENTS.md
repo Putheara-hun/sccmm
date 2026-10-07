@@ -1,41 +1,83 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# 🤖 Just Us (Mobile App) — AI Agent Memory & Context
 
-## Expo has changed — do not trust your training data
+This file preserves the complete context, decisions, and instructions so that Antigravity can seamlessly continue this conversation on macOS.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+---
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+## 📌 Project Overview & Purpose
 
-## Commands
+A real-time couple tracking and relationship mobile application built for iOS with React Native and Expo.
+- **Core Requirement**: The app **must continuously fetch and sync live GPS coordinates in the background even when the app is completely closed or the screen is locked**, similar to Life360, Apple Find My, and Zenly.
+- **Firebase Realtime DB**: `https://mygf-tracker-default-rtdb.firebaseio.com`
+- **Synchronized With**: Web application at `D:\MYGF` (both web and mobile share the same database and credentials).
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+---
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+## 👥 Accounts & Credentials
 
-Run lint and typecheck before declaring any task done.
+- **Ra (Boyfriend)**: Username `ra`, Password `123`, Slot `p1`, Emoji `👦`
+- **Leak (Girlfriend)**: Username `leak`, Password `123`, Slot `p2`, Emoji `👧`
+- **Relationship Date**: `2026-07-10`
+- **Birthdays**: Ra: `2002-11-13`, Leak: `2004-07-10`
 
-## Navigation & Routing
+---
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+## 📍 24/7 Background Location Architecture
 
-## Building with EAS
+1. **Native iOS Task (`CLLocationManager`)**:
+   - Defined in [App.js](file:///D:/MYGF%20-%20MBLAPP/App.js) at global scope: `TaskManager.defineTask('JUST_US_BACKGROUND_LOCATION_TASK', ...)`.
+   - iOS automatically wakes this task when stationary intervals elapse or when movement is detected.
+2. **Direct HTTPS REST Sync**:
+   - Updates are sent via `fetch(`${FIREBASE_DB}/locations/${slot}.json`, { method: 'PATCH', ... })`.
+   - Direct REST API calls complete within 200ms, completely avoiding WebSocket disconnects when iOS backgrounds the app.
+3. **Anti-Sleep Flags (Critical)**:
+   - `showsBackgroundLocationIndicator: true`: Keeps iOS status pill active, protecting the app from being killed.
+   - `pausesLocationUpdatesAutomatically: false`: Prevents iOS from putting GPS to sleep when stationary.
+   - `accuracy: Location.Accuracy.High`.
+4. **iOS Native Entitlements**:
+   - Configured in [app.json](file:///D:/MYGF%20-%20MBLAPP/app.json):
+     - `bundleIdentifier`: `com.putheara.justus`
+     - `UIBackgroundModes`: `["location", "fetch"]`
+     - `NSLocationAlwaysAndWhenInUseUsageDescription`
+     - `NSLocationAlwaysUsageDescription`
+     - `NSLocationWhenInUseUsageDescription`
+     - `isIosBackgroundLocationEnabled: true` in `expo-location` plugin.
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
+---
 
-## Rules
+## 🗺️ Key Features Implemented
 
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+1. **Native Maps (`react-native-maps`)**:
+   - Standard & Satellite mode toggle.
+   - Live avatar pins with pulsating radar rings.
+   - Recenter floating button (🎯) to re-center on both markers smoothly.
+   - "Get Direction" card linking straight into Google Maps (`https://www.google.com/maps/dir/?api=1&destination=...`).
+2. **Live Chat & Photos**:
+   - Real-time messages with photo sharing (`expo-image-picker`).
+   - Unread badge counter.
+3. **Days Together Counter**:
+   - Live days counter since July 10, 2026.
+
+---
+
+## 🍎 How to Run on macOS / Install on iPhone
+
+1. **Clone repository on Mac**:
+   ```bash
+   git clone -b ios-mobile https://github.com/Putheara-hun/sccmm.git mygf-app
+   cd mygf-app
+   npm install --legacy-peer-deps
+   ```
+2. **Generate Xcode Project**:
+   ```bash
+   npx expo prebuild --platform ios
+   ```
+3. **Open & Run with Xcode**:
+   ```bash
+   open ios/JustUs.xcworkspace
+   ```
+   - Connect iPhone via USB.
+   - Select your personal Apple ID team in **Signing & Capabilities**.
+   - Select your iPhone at the top and click **Run (▶️)**.
+4. **iPhone Permission**:
+   - Open app -> Allow Location -> Choose **"Change to Always Allow"** and enable **Precise Location**.
