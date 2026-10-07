@@ -242,6 +242,19 @@
     #backBtn { background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer; padding:4px 8px; }
     #chatNavTitle { flex:1; font-size:.95rem; font-weight:600; }
     #onlineStatus { font-size:.72rem; color:#1abc9c; }
+    #lockBtn { background:none; border:none; cursor:pointer; font-size:1.1rem; padding:2px 6px; }
+
+    /* ── SECRET KEY MODAL ── */
+    #passModal { position:fixed; inset:0; z-index:400; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(5,5,12,.8); backdrop-filter:blur(6px); }
+    #passModal.open { display:flex; }
+    .pass-box { width:min(340px,100%); background:#141427; border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:22px; display:flex; flex-direction:column; gap:12px; text-align:center; }
+    .pass-title { font-size:1.15rem; font-weight:700; }
+    .pass-sub { font-size:.76rem; color:#ffffff99; line-height:1.5; }
+    .pass-box input { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:12px 14px; color:#fff; font-size:.95rem; outline:none; font-family:inherit; text-align:center; }
+    .pass-box input:focus { border-color:#1abc9c88; }
+    #passSaveBtn { background:linear-gradient(135deg,#1abc9c,#16a085); border:none; border-radius:12px; padding:12px; color:#fff; font-weight:600; font-size:.95rem; cursor:pointer; font-family:inherit; }
+    .pass-hint { font-size:.72rem; color:#ff6b81; min-height:14px; }
+    .pass-cancel { font-size:.75rem; color:#ffffff55; cursor:pointer; margin-top:-2px; }
     #chatMessages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
     #chatMessages::-webkit-scrollbar { width:3px; }
     #chatMessages::-webkit-scrollbar-thumb { background:#ffffff15; border-radius:3px; }
@@ -349,6 +362,7 @@
   <div id="chatNav">
     <button id="backBtn" onclick="closeChat()">←</button>
     <div id="chatNavTitle">💬 Chat</div>
+    <button id="lockBtn" onclick="openPassModal()" title="Secret chat key">🔒</button>
     <div id="onlineStatus">● …</div>
   </div>
   <div id="chatMessages"></div>
@@ -358,6 +372,18 @@
     <textarea id="msgBox" placeholder="Type something sweet… 💕" rows="1" onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
     <button id="micBtn" class="iconBtn" title="Hold to record voice">🎤</button>
     <button id="sendBtn" class="iconBtn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<!-- ── SECRET CHAT KEY MODAL ── -->
+<div id="passModal">
+  <div class="pass-box">
+    <div class="pass-title">🔒 Secret chat key</div>
+    <p class="pass-sub">You both type the <b>same</b> secret phrase. Your messages get locked with it — nobody without this phrase can read them, not even someone who opens the database.</p>
+    <input id="passInput" type="text" placeholder="e.g. our-first-date-2026" autocapitalize="none" />
+    <button id="passSaveBtn" onclick="saveChatPassphrase()">Unlock chat</button>
+    <div class="pass-hint" id="passHint"></div>
+    <div class="pass-cancel" onclick="closePassModal()">Cancel</div>
   </div>
 </div>
 
@@ -520,7 +546,7 @@ function startApp(username){
   }
 
   initMap();
-  listenLocations(); listenChat(); listenTyping(); listenOnline(); listenSeenReceipts();
+  listenLocations(); initChat(); listenTyping(); listenOnline(); listenSeenReceipts();
   listenPhotos();
   setupMic();
   updateLoveStats();
@@ -1005,6 +1031,7 @@ function openChat(){
   document.getElementById("chatPanel").classList.add("open");
   markMessagesAsSeen();
   scrollChat();
+  if(!localStorage.getItem(PASS_KEY)){ openPassModal(); return; }  // first time: set the shared key
   document.getElementById("msgBox").focus();
 }
 function closeChat(){
@@ -1012,17 +1039,78 @@ function closeChat(){
   markMessagesAsSeen();
 }
 
-function sendMessage(){
+// ═══════════════════════════════════════
+//  🔒 SECRET (ENCRYPTED) CHAT
+//  Messages are encrypted in the browser with a shared
+//  passphrase (AES-GCM). The server only ever stores
+//  ciphertext — unreadable without the phrase you both set.
+// ═══════════════════════════════════════
+let cryptoKey = null;
+const PASS_KEY = "us_chatpass";
+
+function bufToB64(buf){
+  const bytes=new Uint8Array(buf); let bin=""; const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){ bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)); }
+  return btoa(bin);
+}
+function b64ToBuf(b64){
+  const bin=atob(b64); const u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  return u.buffer;
+}
+async function deriveKey(pass){
+  const enc=new TextEncoder();
+  const km=await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt:enc.encode("just-us-salt-v1"), iterations:100000, hash:"SHA-256" },
+    km, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
+}
+async function encStr(plain){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM", iv}, cryptoKey, new TextEncoder().encode(plain));
+  return { enc:bufToB64(ct), iv:bufToB64(iv) };
+}
+async function decStr(encB64, ivB64){
+  if(!cryptoKey) return null;
+  try{
+    const pt=await crypto.subtle.decrypt({name:"AES-GCM", iv:new Uint8Array(b64ToBuf(ivB64))}, cryptoKey, b64ToBuf(encB64));
+    return new TextDecoder().decode(pt);
+  }catch{ return null; }
+}
+async function initChat(){
+  if(!(window.crypto && crypto.subtle)){ showToast("Open via https for the secret chat"); listenChat(); return; }
+  const pass=localStorage.getItem(PASS_KEY);
+  if(pass){ try{ cryptoKey=await deriveKey(pass); }catch{} }
+  updateLockUI();
+  listenChat();
+}
+function updateLockUI(){
+  const btn=document.getElementById("lockBtn");
+  if(btn) btn.textContent = cryptoKey ? "🔒" : "🔓";
+}
+function openPassModal(){
+  const input=document.getElementById("passInput");
+  input.value = localStorage.getItem(PASS_KEY) || "";
+  document.getElementById("passHint").textContent="";
+  document.getElementById("passModal").classList.add("open");
+  setTimeout(()=>input.focus(), 100);
+}
+function closePassModal(){ document.getElementById("passModal").classList.remove("open"); }
+function saveChatPassphrase(){
+  const p=document.getElementById("passInput").value.trim();
+  if(p.length<4){ document.getElementById("passHint").textContent="Use at least 4 characters."; return; }
+  localStorage.setItem(PASS_KEY, p);
+  location.reload();  // re-derives the key and re-decrypts the whole chat cleanly
+}
+
+async function sendMessage(){
   const box=document.getElementById("msgBox");
   const text=box.value.trim(); if(!text)return;
+  if(!cryptoKey){ showToast("🔒 Set your secret key first"); openPassModal(); return; }
   box.value="";
-  const msgObj = { who:currentUser, type:"text", text, ts:Date.now() };
-  
-  if (!navigator.onLine) {
-    showToast("💾 Saved offline. Will deliver as soon as connected!");
-  }
-  
-  fbPush("chat", msgObj);
+  if(!navigator.onLine){ showToast("💾 Saved offline. Will deliver as soon as connected!"); }
+  const { enc, iv } = await encStr(text);
+  fbPush("chat", { who:currentUser, type:"text", enc, iv, ts:Date.now() });
   fbSet(`typing/${currentUser}`, false);
 }
 function handleKey(e){ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }
@@ -1087,30 +1175,24 @@ function appendMsg(key, msg, initialLastSeen){
   const isSenderMe = senderSlot === currentUser;
   const senderLabel = isSenderMe ? `You (${myEmoji})` : `${partnerName} (${partnerEmoji})`;
   
-  let bodyHtml = "";
-  if (msg.type === "voice" && msg.audio){
-    bodyHtml = `<audio controls src="${msg.audio}"></audio>`;
-  } else {
-    bodyHtml = `<div>${esc(msg.text || "")}</div>`;
-  }
-
   // Status indicators for sent messages
   let tickHtml = "";
   if (isMe) {
     const isSeen = partnerLastSeenTs > 0 && msg.ts <= partnerLastSeenTs;
     tickHtml = `<span class="msgTick ${isSeen ? 'seen' : 'sent'}">${isSeen ? '✓✓ Seen' : '✓ Sent'}</span>`;
   }
-  
+
   div.innerHTML = `
     <div class="msgSender">${esc(senderLabel)}</div>
-    ${bodyHtml}
+    <div class="msgBody" style="white-space:pre-wrap">…</div>
     <div class="msgTime">
       <span>${msg.type === "voice" ? "🎤 " : ""}${t}</span>
       ${tickHtml}
     </div>
   `;
-  
+
   document.getElementById("chatMessages").appendChild(div);
+  fillMsgBody(div, msg);
   scrollChat();
 
   const isChatOpen = document.getElementById("chatPanel").classList.contains("open");
@@ -1125,6 +1207,20 @@ function appendMsg(key, msg, initialLastSeen){
         updateBadgeDisplay();
       }
     }
+  }
+}
+async function fillMsgBody(div, msg){
+  const body=div.querySelector(".msgBody");
+  if(!body) return;
+  if(msg.type==="voice"){
+    let src = msg.audio;                          // older plaintext voice
+    if(src==null && msg.enc) src = await decStr(msg.enc, msg.iv);
+    if(src){ body.innerHTML=""; const a=document.createElement("audio"); a.controls=true; a.src=src; body.appendChild(a); }
+    else body.textContent = cryptoKey ? "🔇 can't play" : "🔒 Locked — tap 🔓 to unlock";
+  } else {
+    let text = msg.text;                          // older plaintext message
+    if(text==null && msg.enc) text = await decStr(msg.enc, msg.iv);
+    body.textContent = (text!=null) ? text : (cryptoKey ? "🔒 can't read" : "🔒 Locked — tap 🔓 to unlock");
   }
 }
 function scrollChat(){ const c=document.getElementById("chatMessages"); c.scrollTop=c.scrollHeight; }
@@ -1153,7 +1249,11 @@ function setupMic(){
         const blob=new Blob(chunks,{type:mediaRec.mimeType||"audio/webm"});
         if (blob.size>700000){ showToast("Clip too long — keep it short"); return; }
         const fr=new FileReader();
-        fr.onloadend=()=>fbPush("chat",{who:currentUser,type:"voice",audio:fr.result,ts:Date.now()});
+        fr.onloadend=async ()=>{
+          if(!cryptoKey){ showToast("🔒 Set your secret key first"); openPassModal(); return; }
+          const { enc, iv } = await encStr(fr.result);
+          fbPush("chat",{who:currentUser,type:"voice",enc,iv,ts:Date.now()});
+        };
         fr.readAsDataURL(blob);
       };
       mediaRec.start(); recording=true; mic.classList.add("recording");
