@@ -30,9 +30,9 @@ jobs:
           cd ios
           ls -la
           WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
-          echo "Found workspace: $WORKSPACE"
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "const d=JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(d.workspace.schemes[0])")
-          echo "Found scheme: $SCHEME"
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          echo "Using workspace: $WORKSPACE"
+          echo "Using scheme: $SCHEME"
           xcodebuild -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
@@ -42,6 +42,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
             build
 
       - name: Package into .ipa
