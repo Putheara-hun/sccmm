@@ -1,0 +1,54 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+  push:
+    branches: [ main ]
+
+jobs:
+  build-ios:
+    runs-on: macos-14 # Apple Silicon macOS runner with Xcode pre-installed
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Native iOS Project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build Archive (Physical Device Unsigned IPA for Sideloadly)
+        run: |
+          cd ios
+          xcodebuild -workspace JustUs.xcworkspace \
+            -scheme JustUs \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            CONFIGURATION_BUILD_DIR="${PWD}/build-output" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package into .ipa
+        run: |
+          cd ios
+          mkdir -p Payload
+          cp -r build-output/JustUs.app Payload/
+          zip -r ../JustUs.ipa Payload
+          cd ..
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustUs-iOS-IPA
+          path: JustUs.ipa
