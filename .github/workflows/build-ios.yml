@@ -28,8 +28,13 @@ jobs:
       - name: Build Archive (Physical Device Unsigned IPA for Sideloadly)
         run: |
           cd ios
-          xcodebuild -workspace JustUs.xcworkspace \
-            -scheme JustUs \
+          ls -la
+          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
+          echo "Found workspace: $WORKSPACE"
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "const d=JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(d.workspace.schemes[0])")
+          echo "Found scheme: $SCHEME"
+          xcodebuild -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -destination "generic/platform=iOS" \
@@ -43,7 +48,7 @@ jobs:
         run: |
           cd ios
           mkdir -p Payload
-          cp -r build-output/JustUs.app Payload/
+          cp -r build-output/*.app Payload/
           zip -r ../JustUs.ipa Payload
           cd ..
 
