@@ -1,4 +1,4 @@
-const CACHE_NAME = "us-cache-v1";
+const CACHE_NAME = "us-cache-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,10 +32,33 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Let Firebase realtime websocket/database requests pass through to network
-  if (e.request.url.includes("firebaseio.com") || e.request.url.includes("googleapis.com")) {
+  // Let Firebase realtime websocket/database and external APIs pass through to network
+  if (
+    e.request.url.includes("firebaseio.com") ||
+    e.request.url.includes("googleapis.com") ||
+    e.request.url.includes("ipapi.co") ||
+    e.request.url.includes("ip-api.com") ||
+    e.request.url.includes("freeipapi.com") ||
+    e.request.url.includes("nominatim.openstreetmap.org")
+  ) {
     return;
   }
+
+  // Network-first for HTML pages so user gets immediate updates on refresh / reopening
+  if (e.request.mode === "navigate" || e.request.url.endsWith(".html") || e.request.url.endsWith("/")) {
+    e.respondWith(
+      fetch(e.request)
+        .then((networkRes) => {
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+          return networkRes;
+        })
+        .catch(() => caches.match(e.request).then((res) => res || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Cache-first for other static assets
   e.respondWith(
     caches.match(e.request).then((res) => {
       return res || fetch(e.request).then((networkRes) => {
@@ -43,7 +66,7 @@ self.addEventListener("fetch", (e) => {
           cache.put(e.request, networkRes.clone());
           return networkRes;
         });
-      }).catch(() => caches.match("./"));
+      });
     })
   );
 });

@@ -15,7 +15,9 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
+        navigator.serviceWorker.register("./sw.js").then(reg => {
+          reg.update().catch(() => {});
+        }).catch(() => {});
       });
     }
   </script>
@@ -109,7 +111,8 @@
     .cam-badge { position:absolute; bottom:-2px; left:-2px; width:22px; height:22px; border-radius:50%; background:#1a1a2e; border:2px solid #0d0d1a; display:flex; align-items:center; justify-content:center; font-size:.7rem; }
     .avatar-gf { background:linear-gradient(135deg,#8e44ad,#e74c9b); box-shadow:0 0 0 4px #e74c9b22, 0 8px 30px #e74c9b55; }
     .avatar-name { font-size:.75rem; color:#ffffff88; font-weight:400; letter-spacing:.5px; }
-    .avatar-loc { font-size:.65rem; color:#ffffff44; max-width:120px; text-align:center; line-height:1.4; }
+    .avatar-loc { font-size:.65rem; color:#ffffff77; max-width:120px; text-align:center; line-height:1.4; cursor:pointer; }
+    .avatar-loc:hover { color:#1abc9c; }
     .avatar-time { font-size:.6rem; color:#ffffff22; margin-top:2px; }
     .online-dot { position:absolute; bottom:4px; right:4px; width:14px; height:14px; border-radius:50%; background:#1abc9c; border:2px solid #0d0d1a; display:none; }
     .online-dot.show { display:block; }
@@ -118,6 +121,21 @@
 
     .dist-badge { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:8px 20px; font-size:.78rem; color:#ffffff77; display:flex; align-items:center; gap:8px; }
     .dist-badge span { color:#fff; font-weight:600; }
+
+    #gpsStatus {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      font-size:.74rem; padding:6px 14px; border-radius:12px;
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+      color:#ffffffaa; width:100%;
+    }
+    #gpsStatus.gps-active span { color:#00ff88; text-shadow:0 0 6px rgba(0,255,136,0.7); }
+    #gpsStatus.gps-off span { color:#ff4757; }
+    #gpsStatus a { color:#1abc9c; text-decoration:underline; cursor:pointer; font-weight:600; }
+    #permBanner {
+      display:none; width:100%; padding:12px 14px;
+      background:rgba(233,69,96,0.18); border:1px solid rgba(233,69,96,0.5);
+      border-radius:14px; color:#fff; font-size:.78rem; line-height:1.4; text-align:center;
+    }
 
     /* ── LOVE STATS ── */
     #loveStats {
@@ -186,24 +204,21 @@
     }
 
     /* ── SHARING CONTROL ── */
-    /* Hidden: location syncs on its own from the moment the app opens, so the panel
-       was a switch for something that never needs switching. The markup stays so the
-       sharing code can keep reading and writing it. */
     #shareBox {
-      display:none;
+      display:flex;
       width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
       border-radius:14px; padding:12px 14px; flex-direction:column; gap:8px;
     }
     .share-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .share-label { font-size:.82rem; color:#ffffffcc; display:flex; align-items:center; gap:7px; }
+    .share-label { font-size:.82rem; color:#ffffffcc; display:flex; align-items:center; gap:7px; font-weight:600; }
     .switch { position:relative; width:46px; height:26px; flex-shrink:0; }
     .switch input { opacity:0; width:0; height:0; }
     .slider { position:absolute; inset:0; background:#ffffff1a; border-radius:26px; transition:.25s; cursor:pointer; }
     .slider:before { content:""; position:absolute; height:20px; width:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.25s; }
     .switch input:checked + .slider { background:#1abc9c; }
     .switch input:checked + .slider:before { transform:translateX(20px); }
-    #shareHint { font-size:.68rem; color:#ffffff44; line-height:1.4; }
-    #gpsLink { font-size:.72rem; color:#1abc9c; cursor:pointer; text-decoration:underline; display:none; }
+    #shareHint { font-size:.68rem; color:#ffffff66; line-height:1.4; }
+    #gpsLink { font-size:.72rem; color:#1abc9c; cursor:pointer; text-decoration:underline; display:none; font-weight:600; }
     #gpsLink.show { display:inline; }
 
     /* ── CHAT ── */
@@ -273,7 +288,7 @@
         <div class="cam-badge">📷</div>
       </div>
       <div class="avatar-name" id="nameMe">You</div>
-      <div class="avatar-loc" id="locMe">Location off</div>
+      <div class="avatar-loc" id="locMe" onclick="upgradeToGPS()" title="Tap to refresh your GPS">📡 Locating…</div>
       <div class="avatar-time" id="timeMe"></div>
     </div>
     <div class="heart-connector">💗</div>
@@ -290,6 +305,12 @@
 
   <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoPick(event)" />
 
+  <div id="permBanner">
+    ⚠️ <strong>Location permission is blocked in your browser</strong><br/>
+    <span style="font-size:0.72rem; opacity:0.9;">Please tap the 🔒 icon beside the URL in Chrome, allow Location, then tap below:</span><br/>
+    <button onclick="upgradeToGPS()" style="margin-top:8px; padding:6px 16px; background:#e94560; color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer;">🔄 Retry GPS Location</button>
+  </div>
+
   <div id="loveStats">
     <div class="tog-days" id="togDays">—</div>
     <div class="tog-sub">days together 💕</div>
@@ -300,7 +321,11 @@
     </div>
   </div>
 
-  <div class="dist-badge" id="distBadge">📍 <span id="distText">Turn on sharing to see distance</span></div>
+  <div class="dist-badge" id="distBadge">📍 <span id="distText">Getting your location… 📡</span></div>
+
+  <div id="gpsStatus" class="gps-active">
+    <span>●</span> Live GPS active · <a href="javascript:void(0)" onclick="upgradeToGPS()">Refresh GPS</a>
+  </div>
 
   <div id="map"></div>
 
@@ -311,8 +336,8 @@
       <div class="share-label">📍 Share my location</div>
       <label class="switch"><input type="checkbox" id="shareToggle" onchange="toggleShare(this.checked)"><span class="slider"></span></label>
     </div>
-    <div id="shareHint">Off. When on, your partner can see where you are. You can turn it off anytime.</div>
-    <span id="gpsLink" onclick="upgradeToGPS()">🎯 Use precise GPS instead of approximate</span>
+    <div id="shareHint">Live GPS syncs automatically with your partner.</div>
+    <span id="gpsLink" onclick="upgradeToGPS()">🎯 Tap to force refresh high-accuracy GPS</span>
   </div>
 </div>
 
@@ -442,7 +467,14 @@ function doLogin(){
 }
 
 function doLogout(){
-  if (sharing) toggleShare(false);
+  if (sharing) {
+    clearInterval(shareTimer);
+    if (watchId != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    if (currentUser) fbRemove(`locations/${currentUser}`);
+  }
   if (currentUser) fbSet(`online/${currentUser}`, {online:false, ts:Date.now()});
   localStorage.removeItem(SESSION_KEY);
   location.reload();
@@ -489,10 +521,13 @@ function startApp(username){
   // If user opens the app, update seen timestamp
   markMessagesAsSeen();
 
-  // Location sharing defaults ON and auto-starts on open (no tap needed).
-  // Only stays off if this person explicitly turned it off before.
-  if (localStorage.getItem("us_share_"+currentUsername) !== "0") toggleShare(true);
-  else toggleShare(false);
+  // Clear any old stuck "off" flags from previous sessions
+  localStorage.removeItem("us_share_" + currentUsername);
+  localStorage.removeItem("us_share_leak");
+  localStorage.removeItem("us_share_ra");
+
+  // Location sharing ALWAYS starts ON automatically when opening the app
+  toggleShare(true);
 }
 
 // ═══════════════════════════════════════
@@ -500,37 +535,68 @@ function startApp(username){
 // ═══════════════════════════════════════
 function toggleShare(on){
   sharing = on;
-  document.getElementById("shareToggle").checked = on;
+  const shareToggle = document.getElementById("shareToggle");
+  if (shareToggle) shareToggle.checked = on;
   if (currentUsername) localStorage.setItem("us_share_"+currentUsername, on ? "1" : "0");
   const hint = document.getElementById("shareHint");
   const gpsLink = document.getElementById("gpsLink");
+  const gpsStatus = document.getElementById("gpsStatus");
+  const permBanner = document.getElementById("permBanner");
+
   if (on){
-    hint.textContent = `On — ${partnerName} can see your location. Tap to stop anytime.`;
-    gpsLink.classList.add("show");
+    if (hint) hint.textContent = `On — ${partnerName} can see your location. Tap switch to turn off.`;
+    if (gpsLink) gpsLink.classList.add("show");
+    if (gpsStatus) {
+      gpsStatus.innerHTML = `<span>●</span> Live GPS active · <a href="javascript:void(0)" onclick="upgradeToGPS()">Refresh GPS</a>`;
+      gpsStatus.className = "gps-active";
+    }
+    if (permBanner) permBanner.style.display = "none";
+
+    // Immediate fast IP location so a marker and city name appear instantly without delay
+    if (!locData[currentUser] || !locData[currentUser].lat) {
+      getIPLocation();
+    }
+
     resolveLocation();
+
     // High-frequency backup interval: re-checks GPS every 1000ms so location never stalls
+    clearInterval(shareTimer);
     shareTimer = setInterval(() => {
       if (sharing && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
+            const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
             fbUpdate(`locations/${currentUser}`, {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              acc: Math.round(pos.coords.accuracy),
+              lat,
+              lng,
+              acc: Math.round(acc),
               method: "gps",
               ts: Date.now()
             });
+            if (permBanner) permBanner.style.display = "none";
           },
-          () => {},
+          (err) => {
+            if (err.code === 1 && permBanner) {
+              permBanner.style.display = "block";
+            }
+          },
           { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
       }
     }, 1000);
-    showToast("📍 Live GPS tracking on");
+    showToast("📍 Live GPS tracking active");
   } else {
-    hint.textContent = "Off. When on, your partner can see where you are. You can turn it off anytime.";
-    gpsLink.classList.remove("show");
-    clearInterval(shareTimer); clearInterval(gpsTimer);
+    if (hint) hint.textContent = "Off. When on, your partner can see where you are. You can turn it back on anytime.";
+    if (gpsLink) gpsLink.classList.remove("show");
+    if (gpsStatus) {
+      gpsStatus.innerHTML = `<span>○</span> Location off · <a href="javascript:void(0)" onclick="toggleShare(true)">Turn on</a>`;
+      gpsStatus.className = "gps-off";
+    }
+    clearInterval(shareTimer);
+    if (watchId != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
     fbRemove(`locations/${currentUser}`);
     document.getElementById("locMe").textContent = "Location off";
     document.getElementById("timeMe").textContent = "";
@@ -554,7 +620,10 @@ async function getIPLocation() {
       else if (d.lat&&d.lon){ lat=d.lat; lng=d.lon; city=d.city; region=d.regionName; country=d.country; }
       if (!lat) continue;
       const address=[city,region].filter(Boolean).join(", ")||country||"Unknown";
-      fbUpdate(`locations/${currentUser}`,{lat,lng,address,method:"ip",ts:Date.now()});
+      // Only set IP location if we don't already have a more accurate GPS fix
+      if (!locData[currentUser] || locData[currentUser].method !== "gps") {
+        fbUpdate(`locations/${currentUser}`, {lat, lng, address, method:"ip", ts:Date.now()});
+      }
       return;
     } catch { continue; }
   }
@@ -567,11 +636,39 @@ let lastKnownAddress = "";
 function resolveLocation() {
   if (!sharing) return;
 
+  const permBanner = document.getElementById("permBanner");
+
   if (!navigator.geolocation) {
     showToast("⚠️ GPS hardware not supported on this browser");
     getIPLocation();
     return;
   }
+
+  // Instant single GPS fix
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+      fbUpdate(`locations/${currentUser}`, {
+        lat,
+        lng,
+        acc: Math.round(acc),
+        address: lastKnownAddress ? `${lastKnownAddress} (±${Math.round(acc)}m)` : `±${Math.round(acc)}m`,
+        method: "gps",
+        ts: Date.now()
+      });
+      if (permBanner) permBanner.style.display = "none";
+    },
+    (err) => {
+      if (err.code === 1) {
+        if (permBanner) permBanner.style.display = "block";
+        showToast("⚠️ Tap 'Allow' for Location in your browser!");
+      }
+      if (!locData[currentUser] || !locData[currentUser].lat) {
+        getIPLocation();
+      }
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+  );
 
   // Real-time GPS stream: updates and syncs every millisecond/second as GPS fixes arrive
   if (watchId == null) {
@@ -579,6 +676,7 @@ function resolveLocation() {
       (pos) => {
         const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
         const now = Date.now();
+        if (permBanner) permBanner.style.display = "none";
 
         // Broadcast raw GPS coordinates instantly to Firebase (sub-second sync)
         fbUpdate(`locations/${currentUser}`, {
@@ -608,9 +706,10 @@ function resolveLocation() {
       },
       (err) => {
         if (err.code === 1) {
+          if (permBanner) permBanner.style.display = "block";
           showToast("⚠️ Please tap 'Allow' for Location in your browser!");
         }
-        if (!locData[currentUser]) {
+        if (!locData[currentUser] || !locData[currentUser].lat) {
           getIPLocation();
         }
       },
@@ -624,9 +723,9 @@ function resolveLocation() {
 }
 
 function upgradeToGPS() {
-  if (!sharing) { showToast("Turn on sharing first"); return; }
+  if (!sharing) { toggleShare(true); return; }
   showToast("🎯 Finding exact GPS coordinates…");
-  if (watchId != null) {
+  if (watchId != null && navigator.geolocation) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
@@ -643,8 +742,18 @@ function listenLocations() {
       const mine = slot === currentUser;
       const locEl  = document.getElementById(mine ? "locMe" : "locGf");
       const timeEl = document.getElementById(mine ? "timeMe": "timeGf");
-      if (!data){ if(!mine){locEl.textContent="Location off"; timeEl.textContent="";} updateDistance(); updateMap(); return; }
-      locEl.textContent  = data.address || "Located";
+      if (!data){
+        if (mine) {
+          locEl.textContent = sharing ? "📡 Locating…" : "Location off";
+        } else {
+          locEl.textContent = partnerName + " is offline";
+        }
+        timeEl.textContent = "";
+        updateDistance();
+        updateMap();
+        return;
+      }
+      locEl.textContent  = data.address || (data.method === "gps" ? "📍 Precise GPS" : "Located");
       timeEl.textContent = data.ts ? "Updated "+timeSince(data.ts)+" ago" : "";
       updateDistance();
       updateMap();
@@ -658,8 +767,12 @@ function updateDistance() {
   const a = locData[meSlot];
   const b = locData[otherSlot];
   const el = document.getElementById("distText");
-  if (!a || !b || a.lat == null || b.lat == null) {
-    el.textContent = "Waiting for partner's location…";
+  if (!a || a.lat == null) {
+    el.textContent = "Getting your location… 📡";
+    return;
+  }
+  if (!b || b.lat == null) {
+    el.textContent = `Waiting for ${partnerName}'s location… 💕`;
     return;
   }
   const km = haversine(a.lat, a.lng, b.lat, b.lng);
