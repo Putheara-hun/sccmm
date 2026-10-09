@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -11,6 +11,10 @@
   <meta name="theme-color" content="#0d0d1a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Just Us" />
+  <link rel="icon" id="dynamicFavicon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💕</text></svg>" />
+  <link rel="apple-touch-icon" id="dynamicAppleIcon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0d1a'/><text x='50%' y='68%' text-anchor='middle' font-size='65'>💕</text></svg>" />
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -18,7 +22,13 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
+        navigator.serviceWorker.register("./sw.js").then((reg) => {
+          navigator.serviceWorker.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "OPEN_CHAT") {
+              if (typeof openChat === "function") openChat();
+            }
+          });
+        }).catch(() => {});
       });
     }
   </script>
@@ -29,11 +39,14 @@
 
     body {
       font-family:'Poppins',sans-serif;
-      height:100vh; overflow:hidden;
+      min-height:100vh; min-height:100dvh;
+      overflow-x:hidden; overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
       background:#0d0d1a;
       display:flex; flex-direction:column;
-      align-items:center; justify-content:center;
+      align-items:center; justify-content:flex-start;
       position:relative; color:#fff;
+      padding:calc(14px + env(safe-area-inset-top)) 0 calc(20px + env(safe-area-inset-bottom));
     }
 
     .bg {
@@ -234,6 +247,62 @@
       border:2.5px solid #0d0d1a; box-shadow:0 0 12px rgba(255,45,85,0.9);
       z-index:20; pointer-events:none;
     }
+    #chatBadge.show {
+      display:flex;
+      animation:badgePulse 2s infinite;
+    }
+    @keyframes badgePulse {
+      0% { transform:scale(1); box-shadow:0 0 0 0 rgba(255,45,85,0.8); }
+      70% { transform:scale(1.08); box-shadow:0 0 0 8px rgba(255,45,85,0); }
+      100% { transform:scale(1); box-shadow:0 0 0 0 rgba(255,45,85,0); }
+    }
+
+    /* ── NOTIFICATION & BADGE BANNER ── */
+    .notif-banner {
+      width:100%; margin:8px 0 12px; padding:12px 14px;
+      background:linear-gradient(135deg, rgba(233,69,96,0.22), rgba(26,26,46,0.92));
+      border:1.5px solid rgba(233,69,96,0.5); border-radius:16px;
+      display:none; align-items:center; justify-content:space-between;
+      gap:12px; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.4);
+      animation:fadeIn .3s ease;
+    }
+    .notif-banner-left { display:flex; align-items:center; gap:10px; flex:1; }
+    .notif-bell { font-size:1.35rem; animation:ringBell 2.5s ease infinite; }
+    @keyframes ringBell {
+      0%, 100% { transform:rotate(0deg); }
+      10%, 30% { transform:rotate(-15deg); }
+      20%, 40% { transform:rotate(15deg); }
+      50% { transform:rotate(0deg); }
+    }
+    .notif-title { font-size:0.84rem; font-weight:700; color:#fff; }
+    .notif-sub { font-size:0.72rem; color:rgba(255,255,255,0.8); line-height:1.2; margin-top:2px; }
+    .notif-allow-btn {
+      background:#e94560; color:#fff; border:none; border-radius:10px;
+      padding:8px 14px; font-size:0.78rem; font-weight:700; cursor:pointer;
+      flex-shrink:0; box-shadow:0 4px 14px rgba(233,69,96,0.5);
+    }
+    .notif-allow-btn:active { transform:scale(0.95); }
+
+    /* ── IN-APP CHAT MESSAGE TOAST ── */
+    .chat-msg-toast {
+      position:fixed; top:calc(16px + env(safe-area-inset-top)); left:50%;
+      transform:translateX(-50%) translateY(-140px);
+      width:calc(100% - 28px); max-width:420px;
+      background:rgba(26,26,46,0.96); backdrop-filter:blur(25px);
+      border:1.5px solid rgba(233,69,96,0.6);
+      border-radius:18px; padding:12px 16px;
+      display:flex; align-items:center; gap:12px;
+      color:#fff; z-index:9999;
+      box-shadow:0 12px 35px rgba(0,0,0,0.7), 0 0 25px rgba(233,69,96,0.4);
+      transition:transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor:pointer;
+    }
+    .chat-msg-toast.show { transform:translateX(-50%) translateY(0); }
+    .toast-avatar { font-size:1.6rem; flex-shrink:0; }
+    .toast-body { flex:1; overflow:hidden; }
+    .toast-title { font-size:0.75rem; color:#e94560; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+    .toast-text { font-size:0.88rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; margin-top:1px; }
+    .toast-action { font-size:0.74rem; color:rgba(255,255,255,0.7); flex-shrink:0; font-weight:600; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; }
 
     /* ── CHAT ── */
     #chatPanel { position:fixed; inset:0; z-index:100; display:none; flex-direction:column; background:#0d0d1a; }
@@ -271,7 +340,7 @@
     .msg-other { background:rgba(255,255,255,.1); align-self:flex-start; border-bottom-left-radius:4px; color:#ffffffdd; border:1px solid rgba(255,255,255,.08); }
     .msg audio { max-width:200px; height:36px; }
     #typingIndicator { font-size:.72rem; color:#ffffff33; padding:0 16px 6px; min-height:18px; flex-shrink:0; }
-    #chatInputRow { display:flex; padding:12px 14px; gap:8px; flex-shrink:0; align-items:flex-end; background:rgba(255,255,255,.03); border-top:1px solid rgba(255,255,255,.06); }
+    #chatInputRow { display:flex; padding:12px 14px calc(12px + env(safe-area-inset-bottom)); gap:8px; flex-shrink:0; align-items:flex-end; background:rgba(255,255,255,.03); border-top:1px solid rgba(255,255,255,.06); }
     #msgBox { flex:1; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:10px 14px; color:#fff; font-size:.88rem; outline:none; resize:none; max-height:80px; font-family:inherit; }
     #msgBox::placeholder { color:#ffffff33; }
     .iconBtn { background:linear-gradient(135deg,#e94560,#c62a47); border:none; border-radius:14px; padding:10px 15px; color:#fff; cursor:pointer; font-size:1.1rem; flex-shrink:0; }
@@ -279,6 +348,27 @@
     #recHint { font-size:.72rem; color:#ff6b81; padding:0 16px 4px; min-height:16px; }
 
     #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,.1); backdrop-filter:blur(10px); color:#fff; padding:8px 20px; border-radius:20px; font-size:.8rem; z-index:9999; display:none; border:1px solid rgba(255,255,255,.15); white-space:nowrap; }
+    /* ── PHONE FIT ── */
+    #loginScreen { overflow-y:auto; }
+    #chatPanel { height:100vh; height:100dvh; }
+
+    @media (max-height:760px) {
+      .card { gap:12px; }
+      #map { height:170px; }
+      .avatar { width:68px; height:68px; font-size:1.85rem; }
+      .tog-days { font-size:2.1rem; }
+      #loveStats { padding:12px 12px; }
+    }
+    @media (max-height:640px) {
+      .card { gap:9px; }
+      #map { height:140px; }
+      .avatar { width:60px; height:60px; font-size:1.6rem; }
+      #bigChatBtn { padding:13px; }
+    }
+    @media (max-width:340px) {
+      .avatar { width:62px; height:62px; }
+      .avatar-loc { max-width:92px; }
+    }
   </style>
 </head>
 <body>
@@ -335,6 +425,17 @@
   <div id="permBanner">
     ⚠️ <strong>Location permission is blocked</strong><br/>
     <span style="font-size:0.72rem; opacity:0.9;">Please tap the 🔒 icon beside the URL in your browser to allow Location access.</span>
+  </div>
+
+  <div id="notifBanner" class="notif-banner" onclick="requestNotifPermission()">
+    <div class="notif-banner-left">
+      <span class="notif-bell">🔔</span>
+      <div>
+        <div class="notif-title">Enable Home Screen App Badge</div>
+        <div class="notif-sub">Tap to show red unread count on your app icon</div>
+      </div>
+    </div>
+    <button class="notif-allow-btn" type="button">Allow</button>
   </div>
 
   <div id="loveStats">
@@ -540,23 +641,26 @@ function startApp(username){
     db.ref(".info/connected").on("value", s=>{ document.getElementById("liveDot").style.opacity = s.val()?1:0.4; });
   }
 
-  // Request notification/badge permissions on mobile
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
-  }
-
   initMap();
+  checkNotifPermissionBanner();
+  listenMySeen();
   listenLocations(); initChat(); listenTyping(); listenOnline(); listenSeenReceipts();
   listenPhotos();
   setupMic();
   updateLoveStats();
   setInterval(updateLoveStats, 60 * 60 * 1000); // refresh hourly (rolls over at midnight)
 
-  // If user opens the app, update seen timestamp
-  markMessagesAsSeen();
-
   // Hands-free auto GPS tracking starts immediately like a delivery app!
   startAutoTracking();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (ev) => {
+      if (ev.data && ev.data.type === "OPEN_CHAT") openChat();
+    });
+  }
+  if (new URLSearchParams(window.location.search).get("openChat") === "1") {
+    setTimeout(openChat, 400);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -985,12 +1089,30 @@ function updateLoveStats(){
 //  CHAT  (text + voice)
 // ═══════════════════════════════════════
 // ── Persistent Unread tracking & Read Receipts ──
+let cloudLastSeenTs = 0;
+
 function getLastSeenTs() {
-  return parseInt(localStorage.getItem("last_seen_ts_" + currentUsername) || "0", 10);
+  const local = parseInt(localStorage.getItem("last_seen_ts_" + currentUsername) || "0", 10);
+  return Math.max(local, cloudLastSeenTs);
 }
+
+function listenMySeen() {
+  if (!currentUser) return;
+  fbOn(`seen/${currentUser}`, "value", (ts) => {
+    if (ts) {
+      cloudLastSeenTs = ts;
+      const local = parseInt(localStorage.getItem("last_seen_ts_" + currentUsername) || "0", 10);
+      if (ts > local) {
+        localStorage.setItem("last_seen_ts_" + currentUsername, ts.toString());
+      }
+    }
+  });
+}
+
 function markMessagesAsSeen() {
   const now = Date.now();
   localStorage.setItem("last_seen_ts_" + currentUsername, now.toString());
+  cloudLastSeenTs = now;
   unread = 0;
   updateBadgeDisplay();
 
@@ -999,33 +1121,238 @@ function markMessagesAsSeen() {
     fbSet(`seen/${currentUser}`, now);
   }
 }
+
+// ── Notification & App Badge Permissions ──
+function requestNotifPermission() {
+  if (!("Notification" in window)) {
+    showToast("Notifications not supported on this browser");
+    return;
+  }
+  Notification.requestPermission().then((perm) => {
+    if (perm === "granted") {
+      const banner = document.getElementById("notifBanner");
+      if (banner) banner.style.display = "none";
+      showToast("🔔 App icon badge & alerts enabled!");
+      updateBadgeDisplay();
+    } else {
+      showToast("Permission: " + perm);
+    }
+  }).catch((e) => {
+    showToast("Error requesting permission");
+  });
+}
+
+function checkNotifPermissionBanner() {
+  const banner = document.getElementById("notifBanner");
+  if (!banner) return;
+  if ("Notification" in window && Notification.permission !== "granted") {
+    banner.style.display = "flex";
+  } else {
+    banner.style.display = "none";
+  }
+}
+
+// ── Romantic Audio Chime for incoming partner messages ──
+function playNotificationChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    
+    // Tone 1: E6 (1318 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(1318.51, now);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Tone 2: G#6 (1661 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(1661.22, now + 0.12);
+    gain2.gain.setValueAtTime(0.25, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.55);
+  } catch (e) {}
+}
+
+// ── Floating in-app message preview toast ──
+function showChatToast(sender, text) {
+  let toast = document.getElementById("chatMsgToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "chatMsgToast";
+    toast.className = "chat-msg-toast";
+    toast.onclick = () => openChat();
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `
+    <div class="toast-avatar">${esc(sender)}</div>
+    <div class="toast-body">
+      <div class="toast-title">New Message</div>
+      <div class="toast-text">${esc(text)}</div>
+    </div>
+    <div class="toast-action">Tap to reply</div>
+  `;
+  toast.classList.add("show");
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 4500);
+}
+
+// ── Handle incoming partner chat alert & native notification ──
+async function notifyNewMessage(msg) {
+  let preview = "New message 💕";
+  if (msg.type === "voice") {
+    preview = "🎤 Sent a voice message";
+  } else if (msg.enc) {
+    if (cryptoKey) {
+      try {
+        const dec = await decStr(msg.enc, msg.iv);
+        if (dec) preview = dec;
+      } catch (e) {}
+    } else {
+      preview = "🔒 Sent a secret message";
+    }
+  } else if (msg.text) {
+    preview = msg.text;
+  }
+
+  // 1. In-app floating toast if looking at map
+  showChatToast(`${partnerEmoji} ${partnerName}`, preview);
+
+  // 2. Native System Notification (if backgrounded or closed)
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const title = `${partnerName} ${partnerEmoji}`;
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "SHOW_NOTIF",
+          title: title,
+          body: preview
+        });
+      } else {
+        const notif = new Notification(title, {
+          body: preview,
+          tag: "chat-msg",
+          renotify: true
+        });
+        notif.onclick = () => {
+          window.focus();
+          openChat();
+          notif.close();
+        };
+      }
+    } catch (e) {}
+  }
+}
+
+// ── Dynamic Favicon Canvas Badging ──
+function updateDynamicFavicon(badgeCount) {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Draw main heart emoji / app icon
+    ctx.font = "46px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("💕", 32, 34);
+
+    // If there is an unread count, draw bright red circular badge in top-right corner
+    if (badgeCount > 0) {
+      const badgeText = badgeCount > 99 ? "99+" : badgeCount.toString();
+      const badgeX = 46;
+      const badgeY = 16;
+      const radius = 15;
+
+      // Dark border for contrast
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, radius + 2.5, 0, 2 * Math.PI);
+      ctx.fillStyle = "#0d0d1a";
+      ctx.fill();
+
+      // Bright red circle
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = "#ff2d55";
+      ctx.fill();
+
+      // White number
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold " + (badgeText.length > 2 ? "12px" : "15px") + " -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText(badgeText, badgeX, badgeY + 1);
+    }
+
+    const dataUrl = canvas.toDataURL("image/png");
+    let link = document.getElementById("dynamicFavicon");
+    if (link) link.href = dataUrl;
+    let appleLink = document.getElementById("dynamicAppleIcon");
+    if (appleLink) appleLink.href = dataUrl;
+  } catch (e) {}
+}
+
+// ── Master Badge Updater (Home Screen Icon Badge + In-App Badge + Tab Title) ──
 function updateBadgeDisplay() {
   const b = document.getElementById("chatBadge");
   if (b) {
     if (unread > 0) {
       b.style.display = "flex";
+      b.classList.add("show");
       b.textContent = unread > 99 ? "99+" : unread;
     } else {
       b.style.display = "none";
+      b.classList.remove("show");
     }
   }
 
-  // 🔴 App Icon Badge (shows number 3 on iOS and Android home screen icon)
+  // 🔴 1. Native iOS & Android Home Screen App Icon Badge
+  // (Shows the exact red circle badge like ACLEDA / WhatsApp on your iPhone Home Screen!)
   if ("setAppBadge" in navigator) {
     if (unread > 0) {
-      navigator.setAppBadge(unread).catch(() => {});
+      navigator.setAppBadge(unread).catch((e) => console.log("setAppBadge err:", e));
     } else {
       navigator.clearAppBadge().catch(() => {});
     }
   }
 
-  // Update browser tab title: e.g. "(3) 💕 Us"
+  // Sync to Service Worker
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: "SET_BADGE",
+      count: unread
+    });
+  }
+
+  // 2. Update Browser Tab Title: e.g. "(3) 💕 Us"
   if (unread > 0) {
     document.title = `(${unread}) 💕 Us`;
   } else {
     document.title = "💕 Us";
   }
+
+  // 3. Update Dynamic Favicon badge
+  updateDynamicFavicon(unread);
 }
+
+// Quick helper to test app icon badge immediately
+window.testBadge = function(num) {
+  unread = (typeof num === "number") ? num : 5;
+  updateBadgeDisplay();
+  showToast(`🔴 Test Badge set to ${unread}`);
+};
 
 function openChat(){
   document.getElementById("chatPanel").classList.add("open");
@@ -1197,14 +1524,20 @@ function appendMsg(key, msg, initialLastSeen){
 
   const isChatOpen = document.getElementById("chatPanel").classList.contains("open");
   if (!isMe) {
+    const isRecent = (Date.now() - (msg.ts || 0)) < 35000;
     if (isChatOpen) {
       // If chat is open when message arrives, immediately mark it as seen!
       markMessagesAsSeen();
+      if (isRecent) playNotificationChime();
     } else {
       const threshold = initialLastSeen != null ? initialLastSeen : getLastSeenTs();
       if (msg.ts > threshold) {
         unread++;
         updateBadgeDisplay();
+        if (isRecent) {
+          playNotificationChime();
+          notifyNewMessage(msg);
+        }
       }
     }
   }
